@@ -22,6 +22,14 @@ export default function HomeScreen() {
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
+        <Link href="/login">
+          <Link.Trigger>
+            <ThemedText type="subtitle">Log in</ThemedText>
+          </Link.Trigger>
+        </Link>
+        <ThemedText>Open the login screen to sign in.</ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
