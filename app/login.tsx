@@ -1,118 +1,134 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, TextInput, TouchableOpacity } from 'react-native';
+import { Alert, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 
 export default function LoginScreen() {
-	const router = useRouter();
-	const [email, setEmail] = useState('');
-	const [password, setPassword] = useState('');
-	const [isSubmitting, setIsSubmitting] = useState(false);
+    const router = useRouter();
+    const [badgeNumber, setBadgeNumber] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-	function handleSignIn() {
-		if (!email || !password) {
-			Alert.alert('Missing information', 'Please enter your email and password.');
-			return;
-		}
-		setIsSubmitting(true);
-			setTimeout(() => {
-			setIsSubmitting(false);
-			Alert.alert('Signed in', 'Demo sign-in complete.');
-				router.replace('/(tabs)');
-		}, 800);
-	}
+    async function handleSignIn() {
+        if (!badgeNumber || !password) {
+            Alert.alert('Missing information', 'Please enter your badge number and password.');
+            return;
+        }
+        
+        setLoading(true);
+        // Simulate sign in
+        setTimeout(() => {
+            setLoading(false);
+            router.replace('/');
+        }, 800);
+    }
 
-	return (
-		<ThemedView style={{ flex: 1 }}>
-			<Stack.Screen options={{ title: 'Sign in' }} />
-			<KeyboardAvoidingView
-				style={{ flex: 1 }}
-				behavior={Platform.select({ ios: 'padding', android: undefined })}
-			>
-				<ThemedView
-					style={{
-						flex: 1,
-						paddingHorizontal: 24,
-						paddingTop: 48,
-						gap: 24,
-						justifyContent: 'flex-start',
-					}}
-				>
-					<ThemedText type="title" style={{ fontSize: 28, fontWeight: '700' }}>
-						Welcome back
-					</ThemedText>
-					<ThemedText type="default" style={{ opacity: 0.7 }}>
-						Sign in to continue
-					</ThemedText>
+    // Light theme colors
+    const borderColor = '#E5E7EB';
+    const surfaceVariant = '#F9FAFB';
+    const textSecondary = '#6B7280';
+    const backgroundColor = '#FFFFFF';
+    const textColor = '#111827';
+    const tintColor = '#3B82F6';
 
-					<ThemedView style={{ gap: 16, marginTop: 12 }}>
-						<ThemedText style={{ fontSize: 14, opacity: 0.8 }}>Email</ThemedText>
-						<TextInput
-							style={{
-								paddingHorizontal: 14,
-								paddingVertical: Platform.select({ ios: 14, android: 10 }),
-								borderRadius: 12,
-								borderWidth: 1,
-								borderColor: '#cccccc',
-								backgroundColor: 'transparent',
-							}}
-							placeholder="you@example.com"
-							keyboardType="email-address"
-							autoCapitalize="none"
-							autoCorrect={false}
-							value={email}
-							onChangeText={setEmail}
-						/>
+    return (
+        <View style={{ flex: 1, backgroundColor: backgroundColor, paddingHorizontal: 24, paddingTop: 48 }}>
+            <Stack.Screen options={{ title: 'Sign in', headerShown: false }} />
+            <StatusBar
+                barStyle="dark-content"
+                backgroundColor={backgroundColor}
+            />
+            
+            {/* Title */}
+            <View style={{ marginBottom: 32 }}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: textColor, marginBottom: 8 }}>
+                    Welcome back
+                </Text>
+                <Text style={{ fontSize: 16, color: textSecondary }}>
+                    Sign in to continue
+                </Text>
+            </View>
 
-						<ThemedText style={{ fontSize: 14, opacity: 0.8, marginTop: 8 }}>Password</ThemedText>
-						<TextInput
-							style={{
-								paddingHorizontal: 14,
-								paddingVertical: Platform.select({ ios: 14, android: 10 }),
-								borderRadius: 12,
-								borderWidth: 1,
-								borderColor: '#cccccc',
-								backgroundColor: 'transparent',
-							}}
-							placeholder="••••••••"
-							autoCapitalize="none"
-							autoCorrect={false}
-							secureTextEntry
-							value={password}
-							onChangeText={setPassword}
-						/>
-					</ThemedView>
+            {/* Badge Number Input */}
+            <View style={{ marginBottom: 16 }}>
+                <RNTextInput
+                    style={{ 
+                        backgroundColor: surfaceVariant,
+                        borderWidth: 1,
+                        borderColor: borderColor,
+                        color: textColor,
+                        marginBottom: 16,
+                        borderRadius: 12,
+                        paddingHorizontal: 16,
+                        paddingVertical: 16,
+                        fontSize: 16,
+                    }}
+                    placeholder="Please enter your Badge Number"
+                    value={badgeNumber}
+                    onChangeText={setBadgeNumber}
+                    placeholderTextColor={textSecondary}
+                    keyboardType="numeric"
+                    autoCapitalize="none"
+                />
 
-					<TouchableOpacity
-						activeOpacity={0.8}
-						disabled={isSubmitting}
-						onPress={handleSignIn}
-						style={{
-							backgroundColor: '#1f6feb',
-							paddingVertical: 14,
-							borderRadius: 14,
-							alignItems: 'center',
-							marginTop: 24,
-						}}
-					>
-						<ThemedText style={{ color: 'white', fontWeight: '700' }}>
-							{isSubmitting ? 'Signing in…' : 'Sign in'}
-						</ThemedText>
-					</TouchableOpacity>
+                {/* Password Input with Eye Icon */}
+                <View style={{ position: 'relative', marginBottom: 8 }}>
+                    <RNTextInput
+                        style={{ 
+                            backgroundColor: surfaceVariant,
+                            borderWidth: 1,
+                            borderColor: borderColor,
+                            color: textColor,
+                            borderRadius: 12,
+                            paddingHorizontal: 16,
+                            paddingVertical: 16,
+                            paddingRight: 48,
+                            fontSize: 16,
+                        }}
+                        placeholder="Please enter your password"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        placeholderTextColor={textSecondary}
+                    />
+                    <TouchableOpacity
+                        style={{ 
+                            position: 'absolute',
+                            right: 16,
+                            top: '50%',
+                            transform: [{ translateY: -10 }],
+                        }}
+                        onPress={() => setShowPassword(!showPassword)}>
+                        <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={textSecondary} />
+                    </TouchableOpacity>
+                </View>
 
-					<TouchableOpacity
-						accessibilityRole="button"
-						onPress={() => router.back()}
-						style={{ alignItems: 'center', paddingVertical: 10 }}
-					>
-						<ThemedText style={{ opacity: 0.8 }}>Cancel</ThemedText>
-					</TouchableOpacity>
-				</ThemedView>
-			</KeyboardAvoidingView>
-		</ThemedView>
-	);
+                {/* Forgot Password */}
+                <View style={{ alignItems: 'flex-end' }}>
+                    <TouchableOpacity>
+                        <Text style={{ fontSize: 14, color: textSecondary }}>Forgot password?</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Login Button */}
+            <TouchableOpacity
+                style={{ 
+                    marginTop: 24,
+                    borderRadius: 12,
+                    paddingVertical: 16,
+                    backgroundColor: tintColor
+                }}
+                onPress={handleSignIn}
+                disabled={loading}>
+                <Text style={{ textAlign: 'center', fontSize: 16, fontWeight: '600', color: 'white' }}>
+                    {loading ? 'LOADING...' : 'LOGIN'}
+                </Text>
+            </TouchableOpacity>
+
+        </View>
+    );
 }
-
 
