@@ -1,6 +1,10 @@
+import { LocationMapModal } from '@/components/location-map-modal';
+import { NavBar } from '@/components/nav-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Mock data - in a real app this would come from an API/database
 const REPORT_DATA: Record<string, any> = {
@@ -14,6 +18,7 @@ const REPORT_DATA: Record<string, any> = {
     nearby_landmark: 'Near City Hall',
     city: 'Manila',
     province: 'Metro Manila',
+    coordinates: { latitude: 14.5995, longitude: 120.9842 }, // Manila City Hall coordinates
     brief_description: 'Two-vehicle collision at intersection. Both drivers were cooperative. Minor injuries reported.',
     vehicle_description: '2 sedans involved',
     who_was_involved: 'Driver A: John Doe, Driver B: Jane Smith',
@@ -39,6 +44,7 @@ const REPORT_DATA: Record<string, any> = {
     nearby_landmark: 'Corner of 5th Avenue',
     city: 'Quezon City',
     province: 'Metro Manila',
+    coordinates: { latitude: 14.6760, longitude: 121.0437 },
     brief_description: 'Store robbery with witnesses. Suspect fled on motorcycle.',
     vehicle_description: 'Black motorcycle, license plate partially visible',
     who_was_involved: 'Store owner: Maria Garcia, 2 employees present',
@@ -64,6 +70,7 @@ const REPORT_DATA: Record<string, any> = {
     nearby_landmark: 'Near playground area',
     city: 'Makati',
     province: 'Metro Manila',
+    coordinates: { latitude: 14.5547, longitude: 121.0244 },
     brief_description: 'Graffiti on park benches and walls discovered during morning inspection.',
     vehicle_description: 'None',
     who_was_involved: 'Unknown perpetrators',
@@ -89,6 +96,7 @@ const REPORT_DATA: Record<string, any> = {
     nearby_landmark: 'Apartment Building 7B',
     city: 'Pasig',
     province: 'Metro Manila',
+    coordinates: { latitude: 14.5764, longitude: 121.0851 },
     brief_description: 'Noise complaint from neighbors. Loud argument heard from unit.',
     vehicle_description: 'None',
     who_was_involved: 'Residents of Unit 7B',
@@ -110,6 +118,7 @@ export default function ReportDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const report = REPORT_DATA[id || ''];
+  const [showMapModal, setShowMapModal] = useState(false);
 
   if (!report) {
     return (
@@ -127,17 +136,17 @@ export default function ReportDetailsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Floating header */}
-      <View style={styles.floatingHeader}>
-        <TouchableOpacity accessibilityRole="button" onPress={() => router.back()} style={styles.headerIconBtn}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.floatingHeaderTitle}>Report Details</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      {/* Navigation Bar */}
+      <NavBar
+        title="Report Details"
+        leftIcon="arrow-back"
+        onLeftPress={() => router.back()}
+        showLeftIcon={true}
+        showRightIcon={false}
+      />
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Report Header */}
@@ -168,19 +177,40 @@ export default function ReportDetailsScreen() {
         {/* Location */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Location</Text>
-          <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={18} color="#6B7280" />
+          <View style={styles.locationContainer}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoText}>{report.street_address}</Text>
-              <Text style={styles.infoTextSecondary}>
-                {report.city}, {report.province}
-              </Text>
-              {report.nearby_landmark && (
-                <Text style={styles.infoTextSecondary}>
-                  Near: {report.nearby_landmark}
-                </Text>
-              )}
+              <View style={styles.infoRow}>
+                <Ionicons name="location-outline" size={18} color="#6B7280" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoText}>{report.street_address}</Text>
+                  <Text style={styles.infoTextSecondary}>
+                    {report.city}, {report.province}
+                  </Text>
+                  {report.nearby_landmark && (
+                    <Text style={styles.infoTextSecondary}>
+                      Near: {report.nearby_landmark}
+                    </Text>
+                  )}
+                </View>
+              </View>
             </View>
+            
+            {/* Mini Map Thumbnail */}
+            <TouchableOpacity
+              style={styles.mapThumbnail}
+              onPress={() => setShowMapModal(true)}
+              activeOpacity={0.7}
+            >
+              <Image
+                source={{
+                  uri: `https://maps.googleapis.com/maps/api/staticmap?center=${report.coordinates.latitude},${report.coordinates.longitude}&zoom=15&size=120x120&markers=color:red%7C${report.coordinates.latitude},${report.coordinates.longitude}&key=YOUR_GOOGLE_MAPS_API_KEY`,
+                }}
+                style={styles.mapImage}
+              />
+              <View style={styles.mapOverlay}>
+                <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -288,7 +318,21 @@ export default function ReportDetailsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+
+      {/* Location Map Modal */}
+      {report.coordinates && (
+        <LocationMapModal
+          visible={showMapModal}
+          onClose={() => setShowMapModal(false)}
+          incidentLocation={{
+            latitude: report.coordinates.latitude,
+            longitude: report.coordinates.longitude,
+            title: report.incident_title,
+            address: `${report.street_address}, ${report.city}, ${report.province}`,
+          }}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -302,7 +346,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingTop: 96,
   },
   headerSection: {
     backgroundColor: '#FFFFFF',
@@ -356,6 +399,29 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
   },
+  locationContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  mapThumbnail: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  mapImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F3F4F6',
+  },
+  mapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   infoText: {
     fontSize: 16,
     color: '#111827',
@@ -405,39 +471,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 32,
     gap: 12,
-  },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingTop: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-  },
-  floatingHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
   },
   primaryButton: {
     flexDirection: 'row',

@@ -1,7 +1,9 @@
+import { NavBar } from '@/components/nav-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Animated, Easing, FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Mock data for assigned reports
 const MOCK_REPORTS = [
@@ -77,15 +79,15 @@ export default function Index() {
 	}
 
 	return (
-		<View style={styles.container}>
-			{/* Floating header */}
-			<View style={styles.floatingHeader}>
-				<TouchableOpacity accessibilityRole="button" onPress={openMenu} style={styles.headerIconBtn}>
-					<Ionicons name="person-circle-outline" size={24} color="#111827" />
-				</TouchableOpacity>
-				<Text style={styles.floatingHeaderTitle}>Assigned Reports</Text>
-				<View style={{ width: 40 }} />
-			</View>
+		<SafeAreaView style={styles.container} edges={['top']}>
+			{/* Navigation Bar */}
+			<NavBar
+				title="Assigned Reports"
+				leftIcon="person-circle-outline"
+				onLeftPress={openMenu}
+				showLeftIcon={true}
+				showRightIcon={false}
+			/>
 
 			{/* Reports List */}
 			<FlatList
@@ -160,7 +162,7 @@ export default function Index() {
 				</View>
 			</Animated.View>
 
-		</View>
+		</SafeAreaView>
 	);
 }
 
@@ -178,42 +180,8 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: '#F9FAFB',
 	},
-	floatingHeader: {
-		position: 'absolute',
-		top: 0,
-		left: 0,
-		right: 0,
-		zIndex: 10,
-		height: 56,
-		backgroundColor: '#FFFFFF',
-		borderBottomWidth: 1,
-		borderBottomColor: '#E5E7EB',
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: 8,
-		paddingTop: 6,
-		shadowColor: '#000',
-		shadowOpacity: 0.04,
-		shadowRadius: 4,
-		shadowOffset: { width: 0, height: 1 },
-		elevation: 1,
-	},
-	headerIconBtn: {
-		width: 40,
-		height: 40,
-		alignItems: 'center',
-		justifyContent: 'center',
-		borderRadius: 20,
-	},
-	floatingHeaderTitle: {
-		fontSize: 18,
-		fontWeight: '700',
-		color: '#111827',
-	},
 	listContent: {
 		padding: 16,
-		paddingTop: 96,
 	},
 	reportCard: {
 		backgroundColor: '#FFFFFF',
