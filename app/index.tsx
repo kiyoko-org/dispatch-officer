@@ -153,7 +153,7 @@ export default function Index() {
 					</View>
 				</View>
 				<View style={styles.menuList}>
-					<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); }} />
+					<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); router.push('/profile'); }} />
 					<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); }} />
 					<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); }} />
 				</View>
