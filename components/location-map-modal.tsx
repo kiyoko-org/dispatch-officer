@@ -22,6 +22,7 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 	const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
 	const [distance, setDistance] = useState<string>('');
 	const [duration, setDuration] = useState<string>('');
+	const [routingMethod, setRoutingMethod] = useState<'google' | 'osrm' | 'direct'>('google');
 	const mapRef = useRef<MapView>(null);
 
 	useEffect(() => {
@@ -34,7 +35,7 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 		if (officerLocation && visible) {
 			getDirections();
 		}
-	}, [officerLocation, visible]);
+	}, [officerLocation, visible, routingMethod]);
 
 	async function getCurrentLocation() {
 		try {
@@ -61,54 +62,103 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 		if (!officerLocation) return;
 
 		try {
-			const origin = `${officerLocation.latitude},${officerLocation.longitude}`;
-			const destination = `${incidentLocation.latitude},${incidentLocation.longitude}`;
-			const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
-			
-			console.log('API Key from config:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
-			
-			if (!apiKey) {
-				console.error('Google Maps API key not found in Constants.expoConfig.extra');
-				Alert.alert('Configuration Error', 'Google Maps API key is not configured.');
-				return;
+			if (routingMethod === 'google') {
+				await getGoogleDirections();
+			} else if (routingMethod === 'osrm') {
+				await getOSRMDirections();
+			} else {
+				getDirectRoute();
 			}
+		} catch (error) {
+			console.error('Error getting directions:', error);
+			Alert.alert('Error', 'Failed to get route directions.');
+		}
+	}
+
+	async function getGoogleDirections() {
+		if (!officerLocation) return;
+
+		const origin = `${officerLocation.latitude},${officerLocation.longitude}`;
+		const destination = `${incidentLocation.latitude},${incidentLocation.longitude}`;
+		const apiKey = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
+		
+		console.log('API Key from config:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
+		
+		if (!apiKey) {
+			console.error('Google Maps API key not found, falling back to OSRM');
+			setRoutingMethod('osrm');
+			return;
+		}
+		
+		const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${apiKey}`;
+		console.log('Fetching directions from:', url.replace(apiKey, 'API_KEY_HIDDEN'));
+		
+		// Using Google Directions API
+		const response = await fetch(url);
+		const data = await response.json();
+
+		console.log('Directions API response status:', data.status);
+
+		if (data.status === 'REQUEST_DENIED') {
+			console.error('API request denied, falling back to OSRM');
+			setRoutingMethod('osrm');
+			return;
+		}
+
+		if (data.status !== 'OK') {
+			console.error('Directions API error:', data.status);
+			setRoutingMethod('osrm');
+			return;
+		}
+
+		if (data.routes && data.routes.length > 0) {
+			const route = data.routes[0];
+			const points = decodePolyline(route.overview_polyline.points);
+			console.log(`Google route found with ${points.length} points`);
+			setRouteCoordinates(points);
 			
-			const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${apiKey}`;
-			console.log('Fetching directions from:', url.replace(apiKey, 'API_KEY_HIDDEN'));
-			
-			// Using Google Directions API
-			const response = await fetch(url);
+			// Set distance and duration
+			if (route.legs && route.legs.length > 0) {
+				setDistance(route.legs[0].distance.text);
+				setDuration(route.legs[0].duration.text);
+			}
+
+			// Fit map to show both markers and route
+			if (mapRef.current) {
+				mapRef.current.fitToCoordinates([officerLocation, incidentLocation], {
+					edgePadding: { top: 100, right: 50, bottom: 250, left: 50 },
+					animated: true,
+				});
+			}
+		} else {
+			console.log('No Google routes found, falling back to OSRM');
+			setRoutingMethod('osrm');
+		}
+	}
+
+	async function getOSRMDirections() {
+		if (!officerLocation) return;
+
+		try {
+			// Using OSRM (OpenStreetMap Routing Machine) - Free alternative
+			const response = await fetch(
+				`https://router.project-osrm.org/route/v1/driving/${officerLocation.longitude},${officerLocation.latitude};${incidentLocation.longitude},${incidentLocation.latitude}?overview=full&geometries=polyline`
+			);
 			const data = await response.json();
 
-			console.log('Directions API response status:', data.status);
-			console.log('Full response:', JSON.stringify(data, null, 2));
+			console.log('OSRM API response:', data);
 
-			if (data.status === 'REQUEST_DENIED') {
-				console.error('API request denied:', data.error_message);
-				Alert.alert(
-					'API Error', 
-					`${data.error_message}\n\nPlease enable Directions API in Google Cloud Console.`
-				);
-				return;
-			}
-
-			if (data.status !== 'OK') {
-				console.error('Directions API error:', data.status, data.error_message);
-				Alert.alert('Route Error', `Could not get directions: ${data.status}`);
-				return;
-			}
-
-			if (data.routes && data.routes.length > 0) {
+			if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
 				const route = data.routes[0];
-				const points = decodePolyline(route.overview_polyline.points);
-				console.log(`Route found with ${points.length} points`);
+				const points = decodePolyline(route.geometry);
+				console.log(`OSRM route found with ${points.length} points`);
 				setRouteCoordinates(points);
 				
-				// Set distance and duration
-				if (route.legs && route.legs.length > 0) {
-					setDistance(route.legs[0].distance.text);
-					setDuration(route.legs[0].duration.text);
-				}
+				// Set distance and duration (OSRM returns in meters and seconds)
+				const distanceKm = (route.distance / 1000).toFixed(1);
+				const durationMin = Math.round(route.duration / 60);
+				setDistance(`${distanceKm} km`);
+				setDuration(`${durationMin} min`);
 
 				// Fit map to show both markers and route
 				if (mapRef.current) {
@@ -117,11 +167,57 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 						animated: true,
 					});
 				}
+			} else {
+				console.log('No OSRM routes found, using direct route');
+				getDirectRoute();
 			}
 		} catch (error) {
-			console.error('Error getting directions:', error);
-			Alert.alert('Error', 'Failed to get route directions.');
+			console.error('OSRM routing failed, using direct route:', error);
+			getDirectRoute();
 		}
+	}
+
+	function getDirectRoute() {
+		if (!officerLocation) return;
+
+		// Simple straight line route
+		const route = [officerLocation, incidentLocation];
+		setRouteCoordinates(route);
+		
+		// Calculate straight-line distance
+		const distance = calculateDistance(
+			officerLocation.latitude,
+			officerLocation.longitude,
+			incidentLocation.latitude,
+			incidentLocation.longitude
+		);
+		setDistance(`${distance.toFixed(1)} km (direct)`);
+		setDuration('~ estimated');
+
+		// Fit map to show both markers
+		if (mapRef.current) {
+			mapRef.current.fitToCoordinates([officerLocation, incidentLocation], {
+				edgePadding: { top: 100, right: 50, bottom: 250, left: 50 },
+				animated: true,
+			});
+		}
+	}
+
+	function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+		// Haversine formula for calculating distance between two coordinates
+		const R = 6371; // Earth's radius in km
+		const dLat = toRad(lat2 - lat1);
+		const dLon = toRad(lon2 - lon1);
+		const a =
+			Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+			Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+			Math.sin(dLon / 2) * Math.sin(dLon / 2);
+		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+		return R * c;
+	}
+
+	function toRad(degrees: number): number {
+		return degrees * (Math.PI / 180);
 	}
 
 	async function openInGoogleMaps() {
@@ -253,6 +349,37 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 
 				{/* Location Info */}
 				<View style={styles.infoCard}>
+					{/* Routing Method Selector */}
+					<View style={styles.routingSelector}>
+						<TouchableOpacity
+							style={[styles.routingButton, routingMethod === 'google' && styles.routingButtonActive]}
+							onPress={() => setRoutingMethod('google')}
+							activeOpacity={0.7}
+						>
+							<Text style={[styles.routingButtonText, routingMethod === 'google' && styles.routingButtonTextActive]}>
+								Google
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[styles.routingButton, routingMethod === 'osrm' && styles.routingButtonActive]}
+							onPress={() => setRoutingMethod('osrm')}
+							activeOpacity={0.7}
+						>
+							<Text style={[styles.routingButtonText, routingMethod === 'osrm' && styles.routingButtonTextActive]}>
+								OSRM
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[styles.routingButton, routingMethod === 'direct' && styles.routingButtonActive]}
+							onPress={() => setRoutingMethod('direct')}
+							activeOpacity={0.7}
+						>
+							<Text style={[styles.routingButtonText, routingMethod === 'direct' && styles.routingButtonTextActive]}>
+								Direct
+							</Text>
+						</TouchableOpacity>
+					</View>
+
 					{distance && duration && (
 						<>
 							<View style={[styles.infoRow, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }]}>
@@ -407,5 +534,32 @@ const styles = StyleSheet.create({
 		color: '#FFFFFF',
 		fontSize: 15,
 		fontWeight: '600',
+	},
+	routingSelector: {
+		flexDirection: 'row',
+		gap: 8,
+		marginBottom: 16,
+		padding: 4,
+		backgroundColor: '#F3F4F6',
+		borderRadius: 10,
+	},
+	routingButton: {
+		flex: 1,
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		borderRadius: 8,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	routingButtonActive: {
+		backgroundColor: '#2563EB',
+	},
+	routingButtonText: {
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#6B7280',
+	},
+	routingButtonTextActive: {
+		color: '#FFFFFF',
 	},
 });

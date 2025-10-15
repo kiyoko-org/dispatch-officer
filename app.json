@@ -20,12 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.dispatchofficer",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyCX47dfg3U8ZXNSn9fIxPJK2jpV9kMfSNY"
-        }
-      }
+      "package": "com.anonymous.dispatchofficer"
     },
     "web": {
       "output": "static",
@@ -49,9 +44,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "GOOGLE_MAPS_API_KEY": "AIzaSyCX47dfg3U8ZXNSn9fIxPJK2jpV9kMfSNY"
     }
   }
 }
