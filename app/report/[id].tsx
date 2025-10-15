@@ -1,6 +1,7 @@
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,11 +15,11 @@ const REPORT_DATA: Record<string, any> = {
     incident_title: 'Traffic Accident on Main Street',
     incident_date: '2024-01-15',
     incident_time: '14:30',
-    street_address: '123 Main Street',
-    nearby_landmark: 'Near City Hall',
-    city: 'Manila',
-    province: 'Metro Manila',
-    coordinates: { latitude: 14.5995, longitude: 120.9842 }, // Manila City Hall coordinates
+    street_address: 'Bonifacio Street',
+    nearby_landmark: 'Near Tuguegarao City Hall',
+    city: 'Tuguegarao City',
+    province: 'Cagayan',
+    coordinates: { latitude: 17.6132, longitude: 121.7270 }, // Tuguegarao City Hall
     brief_description: 'Two-vehicle collision at intersection. Both drivers were cooperative. Minor injuries reported.',
     vehicle_description: '2 sedans involved',
     who_was_involved: 'Driver A: John Doe, Driver B: Jane Smith',
@@ -40,11 +41,11 @@ const REPORT_DATA: Record<string, any> = {
     incident_title: 'Robbery Report - Downtown',
     incident_date: '2024-01-16',
     incident_time: '22:15',
-    street_address: '456 Downtown Ave',
-    nearby_landmark: 'Corner of 5th Avenue',
-    city: 'Quezon City',
-    province: 'Metro Manila',
-    coordinates: { latitude: 14.6760, longitude: 121.0437 },
+    street_address: 'Luna Street',
+    nearby_landmark: 'Near SM City Tuguegarao',
+    city: 'Tuguegarao City',
+    province: 'Cagayan',
+    coordinates: { latitude: 17.6189, longitude: 121.7308 }, // SM Tuguegarao area
     brief_description: 'Store robbery with witnesses. Suspect fled on motorcycle.',
     vehicle_description: 'Black motorcycle, license plate partially visible',
     who_was_involved: 'Store owner: Maria Garcia, 2 employees present',
@@ -66,11 +67,11 @@ const REPORT_DATA: Record<string, any> = {
     incident_title: 'Vandalism at City Park',
     incident_date: '2024-01-17',
     incident_time: '08:00',
-    street_address: 'City Park, Zone 3',
-    nearby_landmark: 'Near playground area',
-    city: 'Makati',
-    province: 'Metro Manila',
-    coordinates: { latitude: 14.5547, longitude: 121.0244 },
+    street_address: 'Rizal Park',
+    nearby_landmark: 'Near Children\'s Playground',
+    city: 'Tuguegarao City',
+    province: 'Cagayan',
+    coordinates: { latitude: 17.6095, longitude: 121.7235 }, // Tuguegarao City Park area
     brief_description: 'Graffiti on park benches and walls discovered during morning inspection.',
     vehicle_description: 'None',
     who_was_involved: 'Unknown perpetrators',
@@ -92,11 +93,11 @@ const REPORT_DATA: Record<string, any> = {
     incident_title: 'Domestic Disturbance',
     incident_date: '2024-01-18',
     incident_time: '19:45',
-    street_address: '789 Residential St',
-    nearby_landmark: 'Apartment Building 7B',
-    city: 'Pasig',
-    province: 'Metro Manila',
-    coordinates: { latitude: 14.5764, longitude: 121.0851 },
+    street_address: 'Pengue-Ruyu Street',
+    nearby_landmark: 'Barangay Ugac Sur',
+    city: 'Tuguegarao City',
+    province: 'Cagayan',
+    coordinates: { latitude: 17.6201, longitude: 121.7189 }, // Residential area Tuguegarao
     brief_description: 'Noise complaint from neighbors. Loud argument heard from unit.',
     vehicle_description: 'None',
     who_was_involved: 'Residents of Unit 7B',
@@ -203,7 +204,7 @@ export default function ReportDetailsScreen() {
             >
               <Image
                 source={{
-                  uri: `https://maps.googleapis.com/maps/api/staticmap?center=${report.coordinates.latitude},${report.coordinates.longitude}&zoom=15&size=120x120&markers=color:red%7C${report.coordinates.latitude},${report.coordinates.longitude}&key=YOUR_GOOGLE_MAPS_API_KEY`,
+                  uri: `https://maps.googleapis.com/maps/api/staticmap?center=${report.coordinates.latitude},${report.coordinates.longitude}&zoom=15&size=120x120&markers=color:red%7C${report.coordinates.latitude},${report.coordinates.longitude}&key=${Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY}`,
                 }}
                 style={styles.mapImage}
               />
