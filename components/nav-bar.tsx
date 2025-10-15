@@ -1,6 +1,6 @@
+import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useTheme } from '@/contexts/theme-context';
 
 interface NavBarProps {
 	title: string;
