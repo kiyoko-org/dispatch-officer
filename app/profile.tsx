@@ -1,4 +1,5 @@
 import { NavBar } from '@/components/nav-bar';
+import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -23,8 +24,10 @@ const OFFICER_DATA = {
 };
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
+  
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Navigation Bar */}
       <NavBar
         title="Officer Profile"
@@ -36,12 +39,12 @@ export default function ProfileScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <View style={[styles.avatarContainer, { backgroundColor: colors.primary }]}>
             <Ionicons name="person" size={48} color="#FFFFFF" />
           </View>
-          <Text style={styles.name}>{OFFICER_DATA.name}</Text>
-          <Text style={styles.rank}>{OFFICER_DATA.rank}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>{OFFICER_DATA.name}</Text>
+          <Text style={[styles.rank, { color: colors.textSecondary }]}>{OFFICER_DATA.rank}</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>{OFFICER_DATA.status}</Text>
@@ -50,139 +53,65 @@ export default function ProfileScreen() {
 
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="document-text" size={24} color="#3B82F6" />
-            <Text style={styles.statNumber}>{OFFICER_DATA.total_reports}</Text>
-            <Text style={styles.statLabel}>Total Reports</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{OFFICER_DATA.total_reports}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Reports</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-            <Text style={styles.statNumber}>{OFFICER_DATA.resolved_reports}</Text>
-            <Text style={styles.statLabel}>Resolved</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{OFFICER_DATA.resolved_reports}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Resolved</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="time" size={24} color="#F59E0B" />
-            <Text style={styles.statNumber}>{OFFICER_DATA.pending_reports}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{OFFICER_DATA.pending_reports}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
           </View>
         </View>
 
         {/* Personal Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</Text>
           
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="card" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Badge Number</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.badge_number}</Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="briefcase" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Department</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.department}</Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="business" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Station</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.station}</Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="location" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Assigned Area</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.assigned_area}</Text>
-              </View>
-            </View>
+          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+            <InfoRow icon="card" label="Badge Number" value={OFFICER_DATA.badge_number} colors={colors} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <InfoRow icon="briefcase" label="Department" value={OFFICER_DATA.department} colors={colors} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <InfoRow icon="business" label="Station" value={OFFICER_DATA.station} colors={colors} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <InfoRow icon="location" label="Assigned Area" value={OFFICER_DATA.assigned_area} colors={colors} />
           </View>
         </View>
 
         {/* Contact Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Information</Text>
           
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="mail" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.email}</Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="call" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Phone Number</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.phone}</Text>
-              </View>
-            </View>
+          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+            <InfoRow icon="mail" label="Email" value={OFFICER_DATA.email} colors={colors} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <InfoRow icon="call" label="Phone Number" value={OFFICER_DATA.phone} colors={colors} />
           </View>
         </View>
 
         {/* Service Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Service Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Service Information</Text>
           
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="calendar" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Joined PNP</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.joined_date}</Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIconContainer}>
-                <Ionicons name="shield-checkmark" size={20} color="#3B82F6" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Officer ID</Text>
-                <Text style={styles.infoValue}>{OFFICER_DATA.id}</Text>
-              </View>
-            </View>
+          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+            <InfoRow icon="calendar" label="Joined PNP" value={OFFICER_DATA.joined_date} colors={colors} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <InfoRow icon="shield-checkmark" label="Officer ID" value={OFFICER_DATA.id} colors={colors} />
           </View>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="create-outline" size={20} color="#3B82F6" />
-            <Text style={styles.actionButtonText}>Edit Profile</Text>
+          <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="create-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Edit Profile</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionButton, styles.logoutButton]}>
@@ -197,27 +126,37 @@ export default function ProfileScreen() {
   );
 }
 
+function InfoRow({ icon, label, value, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; colors: any }) {
+  return (
+    <View style={styles.infoRow}>
+      <View style={styles.infoIconContainer}>
+        <Ionicons name={icon} size={20} color={colors.primary} />
+      </View>
+      <View style={styles.infoContent}>
+        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     paddingVertical: 32,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   avatarContainer: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#3B82F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -230,12 +169,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 4,
   },
   rank: {
     fontSize: 16,
-    color: '#6B7280',
     marginBottom: 12,
   },
   statusBadge: {
@@ -265,7 +202,6 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -278,12 +214,10 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
     marginTop: 4,
     textAlign: 'center',
   },
@@ -293,11 +227,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 12,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -324,31 +256,26 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#6B7280',
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 16,
-    color: '#111827',
     fontWeight: '500',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
     marginVertical: 16,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
     marginBottom: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -358,7 +285,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3B82F6',
   },
   logoutButton: {
     borderColor: '#FEE2E2',

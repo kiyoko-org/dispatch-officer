@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTheme } from '@/contexts/theme-context';
 
 interface NavBarProps {
 	title: string;
@@ -20,21 +21,23 @@ export function NavBar({
 	showLeftIcon = true,
 	showRightIcon = false,
 }: NavBarProps) {
+	const { colors } = useTheme();
+	
 	return (
-		<View style={styles.header}>
+		<View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
 			{showLeftIcon ? (
 				<TouchableOpacity
 					accessibilityRole="button"
 					onPress={onLeftPress}
 					style={styles.headerIconBtn}
 				>
-					<Ionicons name={leftIcon} size={24} color="#111827" />
+					<Ionicons name={leftIcon} size={24} color={colors.text} />
 				</TouchableOpacity>
 			) : (
 				<View style={{ width: 40 }} />
 			)}
 			
-			<Text style={styles.headerTitle}>{title}</Text>
+			<Text style={[styles.headerTitle, { color: colors.text }]}>{title}</Text>
 			
 			{showRightIcon ? (
 				<TouchableOpacity
@@ -42,7 +45,7 @@ export function NavBar({
 					onPress={onRightPress}
 					style={styles.headerIconBtn}
 				>
-					<Ionicons name={rightIcon} size={24} color="#111827" />
+					<Ionicons name={rightIcon} size={24} color={colors.text} />
 				</TouchableOpacity>
 			) : (
 				<View style={{ width: 40 }} />
@@ -54,9 +57,7 @@ export function NavBar({
 const styles = StyleSheet.create({
 	header: {
 		height: 56,
-		backgroundColor: '#FFFFFF',
 		borderBottomWidth: 1,
-		borderBottomColor: '#E5E7EB',
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
@@ -77,6 +78,5 @@ const styles = StyleSheet.create({
 	headerTitle: {
 		fontSize: 18,
 		fontWeight: '700',
-		color: '#111827',
 	},
 });

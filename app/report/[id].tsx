@@ -1,5 +1,6 @@
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
+import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -117,17 +118,18 @@ const REPORT_DATA: Record<string, any> = {
 export default function ReportDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors } = useTheme();
   const report = REPORT_DATA[id || ''];
   const [showMapModal, setShowMapModal] = useState(false);
 
   if (!report) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ title: 'Report Not Found', headerShown: true }} />
         <View style={styles.errorState}>
           <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-          <Text style={styles.errorText}>Report not found</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={[styles.errorText, { color: colors.text }]}>Report not found</Text>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -136,7 +138,7 @@ export default function ReportDetailsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Navigation Bar */}
@@ -150,33 +152,33 @@ export default function ReportDetailsScreen() {
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Report Header */}
-        <View style={styles.headerSection}>
-          <Text style={styles.reportTitle}>{report.incident_title}</Text>
+        <View style={[styles.headerSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.reportTitle, { color: colors.text }]}>{report.incident_title}</Text>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{report.status}</Text>
           </View>
         </View>
 
         {/* Reporter ID */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Report ID</Text>
-          <Text style={styles.sectionValue}>{report.reporter_id}</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Report ID</Text>
+          <Text style={[styles.sectionValue, { color: colors.text }]}>{report.reporter_id}</Text>
         </View>
 
         {/* Date & Time */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Date & Time</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Date & Time</Text>
           <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={18} color="#6B7280" />
-            <Text style={styles.infoText}>
+            <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            <Text style={[styles.infoText, { color: colors.text }]}>
               {report.incident_date} at {report.incident_time}
             </Text>
           </View>
         </View>
 
         {/* Location */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Location</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Location</Text>
           
           {/* Map Preview - Full Width */}
           <TouchableOpacity
@@ -185,9 +187,9 @@ export default function ReportDetailsScreen() {
             activeOpacity={0.8}
           >
             <View style={styles.mapPlaceholder}>
-              <Ionicons name="map" size={64} color="#3B82F6" />
-              <Text style={styles.mapPlaceholderTitle}>Location Map</Text>
-              <Text style={styles.mapPlaceholderText}>
+              <Ionicons name="map" size={64} color={colors.primary} />
+              <Text style={[styles.mapPlaceholderTitle, { color: colors.primary }]}>Location Map</Text>
+              <Text style={[styles.mapPlaceholderText, { color: colors.primary }]}>
                 {report.coordinates.latitude.toFixed(6)}, {report.coordinates.longitude.toFixed(6)}
               </Text>
             </View>
@@ -200,16 +202,16 @@ export default function ReportDetailsScreen() {
           </TouchableOpacity>
 
           {/* Location Details */}
-          <View style={styles.locationDetailsCard}>
+          <View style={[styles.locationDetailsCard, { backgroundColor: colors.background }]}>
             <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={18} color="#6B7280" />
+              <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.infoText}>{report.street_address}</Text>
-                <Text style={styles.infoTextSecondary}>
+                <Text style={[styles.infoText, { color: colors.text }]}>{report.street_address}</Text>
+                <Text style={[styles.infoTextSecondary, { color: colors.textSecondary }]}>
                   {report.city}, {report.province}
                 </Text>
                 {report.nearby_landmark && (
-                  <Text style={styles.infoTextSecondary}>
+                  <Text style={[styles.infoTextSecondary, { color: colors.textSecondary }]}>
                     Near: {report.nearby_landmark}
                   </Text>
                 )}
@@ -219,74 +221,74 @@ export default function ReportDetailsScreen() {
         </View>
 
         {/* Category */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Category</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Category</Text>
           <View style={styles.categoryBadge}>
             <Text style={styles.categoryText}>{report.category}</Text>
           </View>
         </View>
 
         {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Description</Text>
-          <Text style={styles.descriptionText}>{report.brief_description}</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Description</Text>
+          <Text style={[styles.descriptionText, { color: colors.text }]}>{report.brief_description}</Text>
         </View>
 
         {/* Involved Parties */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Who Was Involved</Text>
-          <Text style={styles.sectionValue}>{report.who_was_involved}</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Who Was Involved</Text>
+          <Text style={[styles.sectionValue, { color: colors.text }]}>{report.who_was_involved}</Text>
         </View>
 
         {/* Witnesses */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Number of Witnesses</Text>
-          <Text style={styles.sectionValue}>{report.number_of_witnesses}</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Number of Witnesses</Text>
+          <Text style={[styles.sectionValue, { color: colors.text }]}>{report.number_of_witnesses}</Text>
         </View>
 
         {/* Injuries */}
         {report.injuries_reported && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Injuries Reported</Text>
-            <Text style={styles.sectionValue}>{report.injuries_reported}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Injuries Reported</Text>
+            <Text style={[styles.sectionValue, { color: colors.text }]}>{report.injuries_reported}</Text>
           </View>
         )}
 
         {/* Property Damage */}
         {report.property_damage && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Property Damage</Text>
-            <Text style={styles.sectionValue}>{report.property_damage}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Property Damage</Text>
+            <Text style={[styles.sectionValue, { color: colors.text }]}>{report.property_damage}</Text>
           </View>
         )}
 
         {/* Vehicle Description */}
         {report.vehicle_description && report.vehicle_description !== 'None' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Vehicle Description</Text>
-            <Text style={styles.sectionValue}>{report.vehicle_description}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Vehicle Description</Text>
+            <Text style={[styles.sectionValue, { color: colors.text }]}>{report.vehicle_description}</Text>
           </View>
         )}
 
         {/* Suspect Description */}
         {report.suspect_description && report.suspect_description !== 'N/A' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Suspect Description</Text>
-            <Text style={styles.sectionValue}>{report.suspect_description}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Suspect Description</Text>
+            <Text style={[styles.sectionValue, { color: colors.text }]}>{report.suspect_description}</Text>
           </View>
         )}
 
         {/* Additional Info */}
         {report.additional_info && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Additional Information</Text>
-            <Text style={styles.sectionValue}>{report.additional_info}</Text>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Additional Information</Text>
+            <Text style={[styles.sectionValue, { color: colors.text }]}>{report.additional_info}</Text>
           </View>
         )}
 
         {/* Flags */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Report Flags</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Report Flags</Text>
           <View style={styles.flagsContainer}>
             {report.request_follow_up && (
               <View style={styles.flagBadge}>
@@ -311,14 +313,14 @@ export default function ReportDetailsScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.primaryButton}>
+          <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]}>
             <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>Mark as Resolved</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Ionicons name="document-text-outline" size={20} color="#3B82F6" />
-            <Text style={styles.secondaryButtonText}>Add Notes</Text>
+          <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+            <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+            <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Add Notes</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -343,7 +345,6 @@ export default function ReportDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   scrollView: {
     flex: 1,
@@ -352,17 +353,14 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   headerSection: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   reportTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 12,
   },
   statusBadge: {
@@ -378,24 +376,20 @@ const styles = StyleSheet.create({
     color: '#1E40AF',
   },
   section: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
     textTransform: 'uppercase',
     marginBottom: 8,
     letterSpacing: 0.5,
   },
   sectionValue: {
     fontSize: 16,
-    color: '#111827',
     lineHeight: 24,
   },
   infoRow: {
@@ -434,12 +428,10 @@ const styles = StyleSheet.create({
   mapPlaceholderTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E40AF',
     marginTop: 12,
   },
   mapPlaceholderText: {
     fontSize: 13,
-    color: '#3B82F6',
     marginTop: 6,
     fontFamily: 'monospace',
   },
@@ -470,7 +462,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   locationDetailsCard: {
-    backgroundColor: '#F9FAFB',
     padding: 12,
     borderRadius: 8,
   },
@@ -494,11 +485,9 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 16,
-    color: '#111827',
   },
   infoTextSecondary: {
     fontSize: 14,
-    color: '#6B7280',
     marginTop: 2,
   },
   categoryBadge: {
@@ -515,7 +504,6 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     fontSize: 16,
-    color: '#374151',
     lineHeight: 24,
   },
   flagsContainer: {
@@ -546,7 +534,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#3B82F6',
     borderRadius: 12,
     paddingVertical: 16,
     gap: 8,
@@ -560,9 +547,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#3B82F6',
     borderRadius: 12,
     paddingVertical: 16,
     gap: 8,
@@ -570,7 +555,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3B82F6',
   },
   errorState: {
     flex: 1,
@@ -580,12 +564,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#6B7280',
     marginTop: 16,
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#3B82F6',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

@@ -1,4 +1,5 @@
 import { NavBar } from '@/components/nav-bar';
+import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -55,6 +56,7 @@ const MOCK_REPORTS = [
 
 export default function Index() {
 	const router = useRouter();
+	const { colors } = useTheme();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const drawerX = useRef(new Animated.Value(-280)).current;
 	const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -79,7 +81,7 @@ export default function Index() {
 	}
 
 	return (
-		<SafeAreaView style={styles.container} edges={['top']}>
+		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
 			{/* Navigation Bar */}
 			<NavBar
 				title="Assigned Reports"
@@ -96,32 +98,32 @@ export default function Index() {
 				contentContainerStyle={styles.listContent}
 				renderItem={({ item }) => (
 					<TouchableOpacity
-						style={styles.reportCard}
+						style={[styles.reportCard, { backgroundColor: colors.card, borderColor: colors.border }]}
 						onPress={() => handleReportPress(item.id)}
 						activeOpacity={0.7}
 					>
 						<View style={styles.cardHeader}>
-							<Text style={styles.reportTitle}>{item.incident_title}</Text>
-							<Ionicons name="chevron-forward" size={20} color="#6B7280" />
+							<Text style={[styles.reportTitle, { color: colors.text }]}>{item.incident_title}</Text>
+							<Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
 						</View>
 						
 						<View style={styles.cardDetails}>
 							<View style={styles.detailRow}>
-								<Ionicons name="calendar-outline" size={16} color="#6B7280" />
-								<Text style={styles.detailText}>
+								<Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
 									{item.incident_date} at {item.incident_time}
 								</Text>
 							</View>
 							
 							<View style={styles.detailRow}>
-								<Ionicons name="location-outline" size={16} color="#6B7280" />
-								<Text style={styles.detailText}>
+								<Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
 									{item.street_address}, {item.city}
 								</Text>
 							</View>
 						</View>
 
-						<Text style={styles.reportDescription} numberOfLines={2}>
+						<Text style={[styles.reportDescription, { color: colors.text }]} numberOfLines={2}>
 							{item.brief_description}
 						</Text>
 
@@ -132,8 +134,8 @@ export default function Index() {
 				)}
 				ListEmptyComponent={
 					<View style={styles.emptyState}>
-						<Ionicons name="documents-outline" size={64} color="#D1D5DB" />
-						<Text style={styles.emptyText}>No assigned reports</Text>
+						<Ionicons name="documents-outline" size={64} color={colors.border} />
+						<Text style={[styles.emptyText, { color: colors.textSecondary }]}>No assigned reports</Text>
 					</View>
 				}
 			/>
@@ -144,21 +146,21 @@ export default function Index() {
 					<Pressable style={{ flex: 1 }} onPress={closeMenu} />
 				</Animated.View>
 			)}
-			<Animated.View style={[styles.drawer, { transform: [{ translateX: drawerX }] }]}>
-				<View style={styles.drawerHeader}>
-					<Ionicons name="person-circle" size={48} color="#1F2937" />
+			<Animated.View style={[styles.drawer, { backgroundColor: colors.card, borderRightColor: colors.border, transform: [{ translateX: drawerX }] }]}>
+				<View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
+					<Ionicons name="person-circle" size={48} color={colors.primary} />
 					<View>
-						<Text style={styles.drawerTitle}>Officer</Text>
-						<Text style={styles.drawerSubtitle}>dispatcher@agency.gov</Text>
+						<Text style={[styles.drawerTitle, { color: colors.text }]}>Officer</Text>
+						<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }]}>dispatcher@agency.gov</Text>
 					</View>
 				</View>
 				<View style={styles.menuList}>
-					<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); router.push('/profile'); }} />
-					<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); }} />
-					<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); }} />
+					<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); router.push('/profile'); }} colors={colors} />
+					<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); router.push('/settings'); }} colors={colors} />
+					<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
 				</View>
-				<View style={styles.menuFooter}>
-					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={() => { closeMenu(); router.replace('/login'); }} />
+				<View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
+					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={() => { closeMenu(); router.replace('/login'); }} colors={colors} />
 				</View>
 			</Animated.View>
 
@@ -166,11 +168,11 @@ export default function Index() {
 	);
 }
 
-function MenuItem({ icon, label, onPress, destructive }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; destructive?: boolean }) {
+function MenuItem({ icon, label, onPress, destructive, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; destructive?: boolean; colors: any }) {
 	return (
 		<TouchableOpacity onPress={onPress} style={styles.menuItem}>
-			<Ionicons name={icon} size={20} color={destructive ? '#DC2626' : '#111827'} />
-			<Text style={[styles.menuItemText, destructive && { color: '#DC2626' }]}>{label}</Text>
+			<Ionicons name={icon} size={20} color={destructive ? '#DC2626' : colors.text} />
+			<Text style={[styles.menuItemText, { color: destructive ? '#DC2626' : colors.text }]}>{label}</Text>
 		</TouchableOpacity>
 	);
 }
@@ -178,18 +180,15 @@ function MenuItem({ icon, label, onPress, destructive }: { icon: keyof typeof Io
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#F9FAFB',
 	},
 	listContent: {
 		padding: 16,
 	},
 	reportCard: {
-		backgroundColor: '#FFFFFF',
 		borderRadius: 12,
 		padding: 16,
 		marginBottom: 12,
 		borderWidth: 1,
-		borderColor: '#E5E7EB',
 	},
 	cardHeader: {
 		flexDirection: 'row',
@@ -200,7 +199,6 @@ const styles = StyleSheet.create({
 	reportTitle: {
 		fontSize: 16,
 		fontWeight: '600',
-		color: '#111827',
 		flex: 1,
 	},
 	cardDetails: {
@@ -213,12 +211,10 @@ const styles = StyleSheet.create({
 	},
 	detailText: {
 		fontSize: 14,
-		color: '#6B7280',
 		marginLeft: 8,
 	},
 	reportDescription: {
 		fontSize: 14,
-		color: '#374151',
 		marginBottom: 12,
 		lineHeight: 20,
 	},
@@ -241,7 +237,6 @@ const styles = StyleSheet.create({
 	},
 	emptyText: {
 		fontSize: 16,
-		color: '#9CA3AF',
 		marginTop: 12,
 	},
 	backdrop: {
@@ -258,9 +253,7 @@ const styles = StyleSheet.create({
 		bottom: 0,
 		left: 0,
 		width: 280,
-		backgroundColor: '#FFFFFF',
 		borderRightWidth: 1,
-		borderRightColor: '#E5E7EB',
 		paddingTop: 52,
 	},
 	drawerHeader: {
@@ -270,16 +263,13 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingBottom: 16,
 		borderBottomWidth: 1,
-		borderBottomColor: '#F3F4F6',
 	},
 	drawerTitle: {
 		fontSize: 18,
 		fontWeight: '700',
-		color: '#111827',
 	},
 	drawerSubtitle: {
 		fontSize: 12,
-		color: '#6B7280',
 	},
 	menuList: {
 		paddingTop: 8,
@@ -295,13 +285,11 @@ const styles = StyleSheet.create({
 	},
 	menuItemText: {
 		fontSize: 16,
-		color: '#111827',
 	},
 	menuFooter: {
 		marginTop: 'auto',
 		padding: 8,
 		borderTopWidth: 1,
-		borderTopColor: '#F3F4F6',
 	},
 });
 

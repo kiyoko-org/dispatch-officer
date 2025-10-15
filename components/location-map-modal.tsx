@@ -5,6 +5,89 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '@/contexts/theme-context';
+
+// Dark mode map style for Google Maps
+const darkMapStyle = [
+	{ elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+	{ elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+	{ elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+	{
+		featureType: 'administrative.locality',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#d59563' }],
+	},
+	{
+		featureType: 'poi',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#d59563' }],
+	},
+	{
+		featureType: 'poi.park',
+		elementType: 'geometry',
+		stylers: [{ color: '#263c3f' }],
+	},
+	{
+		featureType: 'poi.park',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#6b9a76' }],
+	},
+	{
+		featureType: 'road',
+		elementType: 'geometry',
+		stylers: [{ color: '#38414e' }],
+	},
+	{
+		featureType: 'road',
+		elementType: 'geometry.stroke',
+		stylers: [{ color: '#212a37' }],
+	},
+	{
+		featureType: 'road',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#9ca5b3' }],
+	},
+	{
+		featureType: 'road.highway',
+		elementType: 'geometry',
+		stylers: [{ color: '#746855' }],
+	},
+	{
+		featureType: 'road.highway',
+		elementType: 'geometry.stroke',
+		stylers: [{ color: '#1f2835' }],
+	},
+	{
+		featureType: 'road.highway',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#f3d19c' }],
+	},
+	{
+		featureType: 'transit',
+		elementType: 'geometry',
+		stylers: [{ color: '#2f3948' }],
+	},
+	{
+		featureType: 'transit.station',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#d59563' }],
+	},
+	{
+		featureType: 'water',
+		elementType: 'geometry',
+		stylers: [{ color: '#17263c' }],
+	},
+	{
+		featureType: 'water',
+		elementType: 'labels.text.fill',
+		stylers: [{ color: '#515c6d' }],
+	},
+	{
+		featureType: 'water',
+		elementType: 'labels.text.stroke',
+		stylers: [{ color: '#17263c' }],
+	},
+];
 
 interface LocationMapModalProps {
 	visible: boolean;
@@ -18,6 +101,7 @@ interface LocationMapModalProps {
 }
 
 export function LocationMapModal({ visible, onClose, incidentLocation }: LocationMapModalProps) {
+	const { colors, activeTheme } = useTheme();
 	const [officerLocation, setOfficerLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 	const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
 	const [distance, setDistance] = useState<string>('');
@@ -239,12 +323,12 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 
 	return (
 		<Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-			<SafeAreaView style={styles.container} edges={['top']}>
+			<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
 				{/* Header */}
-				<View style={styles.header}>
-					<Text style={styles.headerTitle}>Incident Location</Text>
+				<View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+					<Text style={[styles.headerTitle, { color: colors.text }]}>Incident Location</Text>
 					<TouchableOpacity onPress={onClose} style={styles.closeButton}>
-						<Ionicons name="close" size={24} color="#111827" />
+						<Ionicons name="close" size={24} color={colors.text} />
 					</TouchableOpacity>
 				</View>
 
@@ -253,6 +337,7 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 					ref={mapRef}
 					provider={PROVIDER_GOOGLE}
 					style={styles.map}
+					customMapStyle={activeTheme === 'dark' ? darkMapStyle : []}
 					initialRegion={{
 						latitude: incidentLocation.latitude,
 						longitude: incidentLocation.longitude,
@@ -303,24 +388,24 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 				</MapView>
 
 				{/* Location Info */}
-				<View style={styles.infoCard}>
+				<View style={[styles.infoCard, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
 					{/* Routing Method Selector */}
-					<View style={styles.routingSelector}>
+					<View style={[styles.routingSelector, { backgroundColor: colors.background }]}>
 						<TouchableOpacity
-							style={[styles.routingButton, routingMethod === 'google' && styles.routingButtonActive]}
+							style={[styles.routingButton, routingMethod === 'google' && { backgroundColor: colors.primary }]}
 							onPress={() => setRoutingMethod('google')}
 							activeOpacity={0.7}
 						>
-							<Text style={[styles.routingButtonText, routingMethod === 'google' && styles.routingButtonTextActive]}>
+							<Text style={[styles.routingButtonText, { color: colors.textSecondary }, routingMethod === 'google' && styles.routingButtonTextActive]}>
 								Google
 							</Text>
 						</TouchableOpacity>
 						<TouchableOpacity
-							style={[styles.routingButton, routingMethod === 'osrm' && styles.routingButtonActive]}
+							style={[styles.routingButton, routingMethod === 'osrm' && { backgroundColor: colors.primary }]}
 							onPress={() => setRoutingMethod('osrm')}
 							activeOpacity={0.7}
 						>
-							<Text style={[styles.routingButtonText, routingMethod === 'osrm' && styles.routingButtonTextActive]}>
+							<Text style={[styles.routingButtonText, { color: colors.textSecondary }, routingMethod === 'osrm' && styles.routingButtonTextActive]}>
 								OSRM
 							</Text>
 						</TouchableOpacity>
@@ -328,17 +413,17 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 
 					{distance && duration && (
 						<>
-							<View style={[styles.infoRow, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }]}>
-								<Ionicons name="car" size={20} color="#3B82F6" />
+							<View style={[styles.infoRow, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+								<Ionicons name="car" size={20} color={colors.primary} />
 								<View style={{ flex: 1 }}>
-									<Text style={styles.infoTitle}>Route Information</Text>
-									<Text style={styles.infoAddress}>Distance: {distance} • ETA: {duration}</Text>
+									<Text style={[styles.infoTitle, { color: colors.text }]}>Route Information</Text>
+									<Text style={[styles.infoAddress, { color: colors.textSecondary }]}>Distance: {distance} • ETA: {duration}</Text>
 								</View>
 							</View>
 
 							{/* Navigate Button */}
 							<TouchableOpacity 
-								style={styles.navigateButton}
+								style={[styles.navigateButton, { backgroundColor: colors.primary }]}
 								onPress={openInGoogleMaps}
 								activeOpacity={0.8}
 							>
@@ -351,17 +436,17 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 					<View style={styles.infoRow}>
 						<Ionicons name="location" size={20} color="#EF4444" />
 						<View style={{ flex: 1 }}>
-							<Text style={styles.infoTitle}>Incident Location</Text>
-							<Text style={styles.infoAddress}>{incidentLocation.address}</Text>
+							<Text style={[styles.infoTitle, { color: colors.text }]}>Incident Location</Text>
+							<Text style={[styles.infoAddress, { color: colors.textSecondary }]}>{incidentLocation.address}</Text>
 						</View>
 					</View>
 					
 					{officerLocation && (
 						<View style={[styles.infoRow, { marginTop: 12 }]}>
-							<Ionicons name="person" size={20} color="#3B82F6" />
+							<Ionicons name="person" size={20} color={colors.primary} />
 							<View style={{ flex: 1 }}>
-								<Text style={styles.infoTitle}>Your Location</Text>
-								<Text style={styles.infoAddress}>
+								<Text style={[styles.infoTitle, { color: colors.text }]}>Your Location</Text>
+								<Text style={[styles.infoAddress, { color: colors.textSecondary }]}>
 									{officerLocation.latitude.toFixed(6)}, {officerLocation.longitude.toFixed(6)}
 								</Text>
 							</View>
@@ -376,7 +461,6 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#FFFFFF',
 	},
 	header: {
 		height: 60,
@@ -385,13 +469,10 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		paddingHorizontal: 16,
 		borderBottomWidth: 1,
-		borderBottomColor: '#E5E7EB',
-		backgroundColor: '#FFFFFF',
 	},
 	headerTitle: {
 		fontSize: 18,
 		fontWeight: '700',
-		color: '#111827',
 	},
 	closeButton: {
 		width: 40,
@@ -404,9 +485,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	infoCard: {
-		backgroundColor: '#FFFFFF',
 		borderTopWidth: 1,
-		borderTopColor: '#E5E7EB',
 		padding: 16,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: -2 },
@@ -422,12 +501,10 @@ const styles = StyleSheet.create({
 	infoTitle: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: '#111827',
 		marginBottom: 4,
 	},
 	infoAddress: {
 		fontSize: 14,
-		color: '#6B7280',
 		lineHeight: 20,
 	},
 	incidentMarker: {
@@ -461,7 +538,6 @@ const styles = StyleSheet.create({
 		elevation: 5,
 	},
 	navigateButton: {
-		backgroundColor: '#2563EB',
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -486,7 +562,6 @@ const styles = StyleSheet.create({
 		gap: 8,
 		marginBottom: 16,
 		padding: 4,
-		backgroundColor: '#F3F4F6',
 		borderRadius: 10,
 	},
 	routingButton: {
@@ -503,7 +578,6 @@ const styles = StyleSheet.create({
 	routingButtonText: {
 		fontSize: 13,
 		fontWeight: '600',
-		color: '#6B7280',
 	},
 	routingButtonTextActive: {
 		color: '#FFFFFF',
