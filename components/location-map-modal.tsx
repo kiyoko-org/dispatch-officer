@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
-import { useEffect, useState, useRef } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View, Alert, Linking, Platform } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Linking, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,7 +22,7 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 	const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
 	const [distance, setDistance] = useState<string>('');
 	const [duration, setDuration] = useState<string>('');
-	const [routingMethod, setRoutingMethod] = useState<'google' | 'osrm' | 'direct'>('google');
+	const [routingMethod, setRoutingMethod] = useState<'google' | 'osrm'>('google');
 	const mapRef = useRef<MapView>(null);
 
 	useEffect(() => {
@@ -64,10 +64,8 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 		try {
 			if (routingMethod === 'google') {
 				await getGoogleDirections();
-			} else if (routingMethod === 'osrm') {
-				await getOSRMDirections();
 			} else {
-				getDirectRoute();
+				await getOSRMDirections();
 			}
 		} catch (error) {
 			console.error('Error getting directions:', error);
@@ -168,56 +166,13 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 					});
 				}
 			} else {
-				console.log('No OSRM routes found, using direct route');
-				getDirectRoute();
+				console.log('No OSRM routes found');
+				Alert.alert('Routing Error', 'Unable to calculate route. Please check your internet connection.');
 			}
 		} catch (error) {
-			console.error('OSRM routing failed, using direct route:', error);
-			getDirectRoute();
+			console.error('OSRM routing failed:', error);
+			Alert.alert('Routing Error', 'Unable to calculate route. Please check your internet connection.');
 		}
-	}
-
-	function getDirectRoute() {
-		if (!officerLocation) return;
-
-		// Simple straight line route
-		const route = [officerLocation, incidentLocation];
-		setRouteCoordinates(route);
-		
-		// Calculate straight-line distance
-		const distance = calculateDistance(
-			officerLocation.latitude,
-			officerLocation.longitude,
-			incidentLocation.latitude,
-			incidentLocation.longitude
-		);
-		setDistance(`${distance.toFixed(1)} km (direct)`);
-		setDuration('~ estimated');
-
-		// Fit map to show both markers
-		if (mapRef.current) {
-			mapRef.current.fitToCoordinates([officerLocation, incidentLocation], {
-				edgePadding: { top: 100, right: 50, bottom: 250, left: 50 },
-				animated: true,
-			});
-		}
-	}
-
-	function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-		// Haversine formula for calculating distance between two coordinates
-		const R = 6371; // Earth's radius in km
-		const dLat = toRad(lat2 - lat1);
-		const dLon = toRad(lon2 - lon1);
-		const a =
-			Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-			Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-			Math.sin(dLon / 2) * Math.sin(dLon / 2);
-		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-		return R * c;
-	}
-
-	function toRad(degrees: number): number {
-		return degrees * (Math.PI / 180);
 	}
 
 	async function openInGoogleMaps() {
@@ -367,15 +322,6 @@ export function LocationMapModal({ visible, onClose, incidentLocation }: Locatio
 						>
 							<Text style={[styles.routingButtonText, routingMethod === 'osrm' && styles.routingButtonTextActive]}>
 								OSRM
-							</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[styles.routingButton, routingMethod === 'direct' && styles.routingButtonActive]}
-							onPress={() => setRoutingMethod('direct')}
-							activeOpacity={0.7}
-						>
-							<Text style={[styles.routingButtonText, routingMethod === 'direct' && styles.routingButtonTextActive]}>
-								Direct
 							</Text>
 						</TouchableOpacity>
 					</View>

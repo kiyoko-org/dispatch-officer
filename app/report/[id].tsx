@@ -1,10 +1,9 @@
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Mock data - in a real app this would come from an API/database
@@ -178,40 +177,44 @@ export default function ReportDetailsScreen() {
         {/* Location */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Location</Text>
-          <View style={styles.locationContainer}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.infoRow}>
-                <Ionicons name="location-outline" size={18} color="#6B7280" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoText}>{report.street_address}</Text>
-                  <Text style={styles.infoTextSecondary}>
-                    {report.city}, {report.province}
-                  </Text>
-                  {report.nearby_landmark && (
-                    <Text style={styles.infoTextSecondary}>
-                      Near: {report.nearby_landmark}
-                    </Text>
-                  )}
-                </View>
+          
+          {/* Map Preview - Full Width */}
+          <TouchableOpacity
+            style={styles.mapPreview}
+            onPress={() => setShowMapModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.mapPlaceholder}>
+              <Ionicons name="map" size={64} color="#3B82F6" />
+              <Text style={styles.mapPlaceholderTitle}>Location Map</Text>
+              <Text style={styles.mapPlaceholderText}>
+                {report.coordinates.latitude.toFixed(6)}, {report.coordinates.longitude.toFixed(6)}
+              </Text>
+            </View>
+            <View style={styles.mapPreviewOverlay}>
+              <View style={styles.mapExpandButton}>
+                <Ionicons name="navigate" size={20} color="#FFFFFF" />
+                <Text style={styles.mapExpandText}>Tap to view full map & directions</Text>
               </View>
             </View>
-            
-            {/* Mini Map Thumbnail */}
-            <TouchableOpacity
-              style={styles.mapThumbnail}
-              onPress={() => setShowMapModal(true)}
-              activeOpacity={0.7}
-            >
-              <Image
-                source={{
-                  uri: `https://maps.googleapis.com/maps/api/staticmap?center=${report.coordinates.latitude},${report.coordinates.longitude}&zoom=15&size=120x120&markers=color:red%7C${report.coordinates.latitude},${report.coordinates.longitude}&key=${Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY}`,
-                }}
-                style={styles.mapImage}
-              />
-              <View style={styles.mapOverlay}>
-                <Ionicons name="expand-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          {/* Location Details */}
+          <View style={styles.locationDetailsCard}>
+            <View style={styles.infoRow}>
+              <Ionicons name="location-outline" size={18} color="#6B7280" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoText}>{report.street_address}</Text>
+                <Text style={styles.infoTextSecondary}>
+                  {report.city}, {report.province}
+                </Text>
+                {report.nearby_landmark && (
+                  <Text style={styles.infoTextSecondary}>
+                    Near: {report.nearby_landmark}
+                  </Text>
+                )}
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -404,6 +407,72 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     alignItems: 'flex-start',
+  },
+  mapPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    backgroundColor: '#F3F4F6',
+    position: 'relative',
+  },
+  mapPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mapPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 2,
+    borderColor: '#BFDBFE',
+    borderStyle: 'dashed',
+  },
+  mapPlaceholderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E40AF',
+    marginTop: 12,
+  },
+  mapPlaceholderText: {
+    fontSize: 13,
+    color: '#3B82F6',
+    marginTop: 6,
+    fontFamily: 'monospace',
+  },
+  mapPlaceholderSubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  mapPreviewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    justifyContent: 'flex-end',
+    padding: 12,
+  },
+  mapExpandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  mapExpandText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  locationDetailsCard: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
   },
   mapThumbnail: {
     width: 120,
