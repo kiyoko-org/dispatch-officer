@@ -31,8 +31,15 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
     );
   }
 
-  // If there's an error or user is not authenticated or not an officer, redirect to login
-  if (error || !user || !isOfficer) {
+  // Only redirect to login if there's a clear authentication error
+  // Don't redirect if error is just "session missing" - that's normal on first load
+  if (error && !error.includes('session missing') && !error.includes('No session found')) {
+    console.warn('Auth error:', error);
+    return <Redirect href="/login" />;
+  }
+
+  // If user is not authenticated or not an officer, redirect to login
+  if (!user || !isOfficer) {
     return <Redirect href="/login" />;
   }
 

@@ -2,7 +2,7 @@ import { useOfficerAuth } from '@/contexts/auth-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 
 
 export default function LoginScreen() {
@@ -12,6 +12,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
 
     async function handleSignIn() {
         if (!badgeNumber || !password) {
@@ -20,13 +21,22 @@ export default function LoginScreen() {
         }
         
         setLocalError(null);
-        const result = await signIn(badgeNumber, password);
+        setIsLoggingIn(true);
         
-        if (result.error) {
-            setLocalError(result.error);
-        } else {
-            // Successful login - navigation will be handled by auth state changes
-            router.replace('/');
+        try {
+            const result = await signIn(badgeNumber, password);
+            
+            if (result.error) {
+                setLocalError(result.error);
+            } else {
+                // Successful login - navigation will be handled by auth state changes
+                router.replace('/');
+            }
+        } catch (error) {
+            setLocalError('An unexpected error occurred. Please try again.');
+            console.error('Login error:', error);
+        } finally {
+            setIsLoggingIn(false);
         }
     }
 
@@ -133,12 +143,19 @@ export default function LoginScreen() {
                     marginTop: 24,
                     borderRadius: 12,
                     paddingVertical: 16,
-                    backgroundColor: isLoading ? '#9CA3AF' : tintColor
+                    backgroundColor: (isLoading || isLoggingIn) ? '#9CA3AF' : tintColor,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
                 }}
                 onPress={handleSignIn}
-                disabled={isLoading}>
+                disabled={isLoading || isLoggingIn}>
+                {(isLoading || isLoggingIn) && (
+                    <ActivityIndicator size="small" color="white" />
+                )}
                 <Text style={{ textAlign: 'center', fontSize: 16, fontWeight: '600', color: 'white' }}>
-                    {isLoading ? 'SIGNING IN...' : 'LOGIN'}
+                    {(isLoading || isLoggingIn) ? 'SIGNING IN...' : 'LOGIN'}
                 </Text>
             </TouchableOpacity>
 

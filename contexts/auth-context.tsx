@@ -1,12 +1,29 @@
 import { DISPATCH_CONFIG } from '@/constants/config';
-import { getDispatchClient, initDispatchClient, OfficerAuthProvider, useOfficerAuthContext } from 'dispatch-lib';
-import { createContext, ReactNode, useContext } from 'react';
+import { getDispatchClient, initDispatchClient } from 'dispatch-lib';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { CustomOfficerAuthProvider, useOfficerAuthContext } from './custom-auth-provider';
 
-// Initialize the dispatch client
-initDispatchClient(DISPATCH_CONFIG);
+// Initialize the dispatch client with proper error handling
+let dispatchClient: ReturnType<typeof getDispatchClient> | null = null;
+
+try {
+  dispatchClient = initDispatchClient(DISPATCH_CONFIG);
+} catch (error) {
+  console.warn('Failed to initialize dispatch client:', error);
+}
 
 // Export the dispatch client for use throughout the app
-export const getDispatchClientInstance = () => getDispatchClient();
+export const getDispatchClientInstance = () => {
+  if (!dispatchClient) {
+    try {
+      dispatchClient = getDispatchClient();
+    } catch (error) {
+      console.error('Dispatch client not initialized:', error);
+      throw error;
+    }
+  }
+  return dispatchClient;
+};
 
 // Auth context type that includes dispatch client access
 export type AuthContextType = {
@@ -21,17 +38,44 @@ export type AuthProviderProps = {
 
 // Main auth provider that wraps the officer auth provider and provides dispatch client access
 export function AuthProvider({ children }: AuthProviderProps) {
-  const dispatchClient = getDispatchClientInstance();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [client, setClient] = useState<ReturnType<typeof getDispatchClient> | null>(null);
+
+  useEffect(() => {
+    const initClient = async () => {
+      try {
+        const dispatchClientInstance = getDispatchClientInstance();
+        setClient(dispatchClientInstance);
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Failed to get dispatch client:', error);
+        setIsInitialized(true); // Still set to true to prevent infinite loading
+      }
+    };
+
+    initClient();
+  }, []);
+
+  if (!isInitialized) {
+    // Show loading state while initializing
+    return null;
+  }
+
+  if (!client) {
+    // If client failed to initialize, show error or fallback
+    console.error('Dispatch client failed to initialize');
+    return <>{children}</>;
+  }
 
   const value: AuthContextType = {
-    dispatchClient,
+    dispatchClient: client,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      <OfficerAuthProvider>
+      <CustomOfficerAuthProvider>
         {children}
-      </OfficerAuthProvider>
+      </CustomOfficerAuthProvider>
     </AuthContext.Provider>
   );
 }
@@ -47,3 +91,4 @@ export function useAuth() {
 
 // Re-export the officer auth context for convenience
 export { useOfficerAuthContext as useOfficerAuth };
+

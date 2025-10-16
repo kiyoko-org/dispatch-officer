@@ -38,12 +38,28 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 
 ## Troubleshooting
 
-If you see the error "supabaseUrl is required", make sure:
+### Common Issues
 
+**"supabaseUrl is required" error:**
 1. Your `.env` file is in the project root directory
 2. The environment variables are prefixed with `EXPO_PUBLIC_`
 3. You've restarted the development server after adding the variables
 4. Check the console logs for configuration validation messages
+
+**"auth session missing" on app startup:**
+- This is normal behavior when the app first loads
+- The app will automatically redirect to login if no valid session is found
+- No action needed - this is expected behavior
+
+**Automatic logout after successful login:**
+- This has been fixed in the latest version
+- The custom auth provider now handles session persistence properly
+- Users should stay logged in after successful authentication
+
+**Loading states:**
+- The app now shows proper loading indicators during login
+- Initial app loading is handled gracefully with loading screens
+- Authentication state changes are properly managed
 
 ## Authentication Flow
 
