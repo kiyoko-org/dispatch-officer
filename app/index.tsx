@@ -3,58 +3,11 @@ import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useOfficers, useReports } from 'dispatch-lib';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Animated, Easing, FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Mock data for assigned reports
-const MOCK_REPORTS = [
-	{
-		id: 1,
-		incident_title: 'Traffic Accident on Main Street',
-		incident_date: '2024-01-15',
-		incident_time: '14:30',
-		street_address: 'Bonifacio Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Two-vehicle collision at intersection',
-		status: 'Assigned',
-	},
-	{
-		id: 2,
-		incident_title: 'Robbery Report - Downtown',
-		incident_date: '2024-01-16',
-		incident_time: '22:15',
-		street_address: 'Luna Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Store robbery with witnesses',
-		status: 'Assigned',
-	},
-	{
-		id: 3,
-		incident_title: 'Vandalism at City Park',
-		incident_date: '2024-01-17',
-		incident_time: '08:00',
-		street_address: 'Rizal Park',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Graffiti on park benches and walls',
-		status: 'Assigned',
-	},
-	{
-		id: 4,
-		incident_title: 'Domestic Disturbance',
-		incident_date: '2024-01-18',
-		incident_time: '19:45',
-		street_address: 'Pengue-Ruyu Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Noise complaint from neighbors',
-		status: 'Assigned',
-	},
-];
 
 function IndexContent() {
 	const router = useRouter();
@@ -63,6 +16,42 @@ function IndexContent() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const drawerX = useRef(new Animated.Value(-280)).current;
 	const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+	// Get officer and assigned report id
+	const { officers, loading: officersLoading } = useOfficers();
+	const currentOfficer = useMemo(() => officers.find((o: any) => o.id === user?.id), [officers, user?.id]);
+	const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
+
+	// Fetch only the assigned report using dispatch-lib
+	const { getReportInfo } = useReports();
+	const [isFetching, setIsFetching] = useState(true);
+	const [assignedReport, setAssignedReport] = useState<any | null>(null);
+
+	async function loadAssignedReport() {
+		if (!assignedReportId) {
+			setAssignedReport(null);
+			setIsFetching(false);
+			return;
+		}
+		setIsFetching(true);
+		try {
+			const { data, error } = await getReportInfo(assignedReportId);
+			if (error) {
+				console.error('Error fetching assigned report:', error);
+			}
+			setAssignedReport(data || null);
+		} finally {
+			setIsFetching(false);
+		}
+	}
+
+	useEffect(() => {
+		// Load when officer data ready or assignedReportId changes
+		if (!officersLoading) {
+			loadAssignedReport();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [officersLoading, assignedReportId]);
 
 	function handleReportPress(reportId: number) {
 		router.push(`/report/${reportId}` as any);
@@ -83,6 +72,8 @@ function IndexContent() {
 		]).start(({ finished }) => { if (finished) setIsMenuOpen(false); });
 	}
 
+	const listData = useMemo(() => (assignedReport ? [assignedReport] : []), [assignedReport]);
+
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
 			{/* Navigation Bar */}
@@ -95,53 +86,60 @@ function IndexContent() {
 			/>
 
 			{/* Reports List */}
-			<FlatList
-				data={MOCK_REPORTS}
-				keyExtractor={(item) => item.id.toString()}
-				contentContainerStyle={styles.listContent}
-				renderItem={({ item }) => (
-					<TouchableOpacity
-						style={[styles.reportCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-						onPress={() => handleReportPress(item.id)}
-						activeOpacity={0.7}
-					>
-						<View style={styles.cardHeader}>
-							<Text style={[styles.reportTitle, { color: colors.text }]}>{item.incident_title}</Text>
-							<Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-						</View>
-						
-						<View style={styles.cardDetails}>
-							<View style={styles.detailRow}>
-								<Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									{item.incident_date} at {item.incident_time}
+			{isFetching ? (
+				<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+					<ActivityIndicator size="large" color={colors.primary} />
+					<Text style={{ marginTop: 12, color: colors.textSecondary }}>Loading assigned report…</Text>
+				</View>
+			) : (
+				<FlatList
+					data={listData}
+					keyExtractor={(item: any) => item.id.toString()}
+					contentContainerStyle={styles.listContent}
+					onRefresh={async () => { await loadAssignedReport(); }}
+					refreshing={isFetching}
+					renderItem={({ item }: { item: any }) => (
+						<TouchableOpacity
+							style={[styles.reportCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+							onPress={() => handleReportPress(item.id)}
+							activeOpacity={0.7}
+						>
+							<View style={styles.cardHeader}>
+								<Text style={[styles.reportTitle, { color: colors.text }]}>
+									{item.incident_title || `Report #${item.id}`}
 								</Text>
+								<Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
 							</View>
-							
-							<View style={styles.detailRow}>
-								<Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									{item.street_address}, {item.city}
-								</Text>
+							<View style={styles.cardDetails}>
+								<View style={styles.detailRow}>
+									<Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+									<Text style={[styles.detailText, { color: colors.textSecondary }]}>
+										{item.incident_date || item.created_at || '—'}{item.incident_time ? ` at ${item.incident_time}` : ''}
+									</Text>
+								</View>
+								<View style={styles.detailRow}>
+									<Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+									<Text style={[styles.detailText, { color: colors.textSecondary }]}>
+										{item.street_address || item.nearby_landmark || 'No location specified'}
+									</Text>
+								</View>
 							</View>
+							<Text style={[styles.reportDescription, { color: colors.text }]} numberOfLines={2}>
+								{item.what_happened || item.brief_description || 'No details provided'}
+							</Text>
+							<View style={styles.statusBadge}>
+								<Text style={styles.statusText}>{(item.status || 'pending').toString()}</Text>
+							</View>
+						</TouchableOpacity>
+					)}
+					ListEmptyComponent={
+						<View style={styles.emptyState}>
+							<Ionicons name="documents-outline" size={64} color={colors.border} />
+							<Text style={[styles.emptyText, { color: colors.textSecondary }]}>No assigned report</Text>
 						</View>
-
-						<Text style={[styles.reportDescription, { color: colors.text }]} numberOfLines={2}>
-							{item.brief_description}
-						</Text>
-
-						<View style={styles.statusBadge}>
-							<Text style={styles.statusText}>{item.status}</Text>
-						</View>
-					</TouchableOpacity>
-				)}
-				ListEmptyComponent={
-					<View style={styles.emptyState}>
-						<Ionicons name="documents-outline" size={64} color={colors.border} />
-						<Text style={[styles.emptyText, { color: colors.textSecondary }]}>No assigned reports</Text>
-					</View>
-				}
-			/>
+					}
+				/>
+			)}
 
 			{/* Floating sidebar + backdrop */}
 			{(isMenuOpen || (backdropOpacity as any)) && (
@@ -153,13 +151,13 @@ function IndexContent() {
 				<View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
 					<Ionicons name="person-circle" size={48} color={colors.primary} />
 					<View>
-						<Text style={[styles.drawerTitle, { color: colors.text }]}>
+						<Text style={[styles.drawerTitle, { color: colors.text }] }>
 							{user?.user_metadata?.first_name ? 
 								`${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : 
 								'Officer'
 							}
 						</Text>
-						<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }]}>
+						<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }] }>
 							Badge #{user?.user_metadata?.badge_number || 'N/A'}
 						</Text>
 					</View>
