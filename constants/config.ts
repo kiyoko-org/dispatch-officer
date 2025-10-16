@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // Dispatch client configuration using expo-constants
@@ -6,6 +7,7 @@ export const DISPATCH_CONFIG = {
     url: Constants.expoConfig?.extra?.supabaseUrl || '',
     anonymousKey: Constants.expoConfig?.extra?.supabaseAnonKey || '',
     detectSessionInUrl: false,
+    storage: AsyncStorage,
   },
 };
 
