@@ -1,4 +1,6 @@
+import { AuthGuard } from '@/components/auth-guard';
 import { NavBar } from '@/components/nav-bar';
+import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -54,9 +56,10 @@ const MOCK_REPORTS = [
 	},
 ];
 
-export default function Index() {
+function IndexContent() {
 	const router = useRouter();
 	const { colors } = useTheme();
+	const { user, signOut } = useOfficerAuth();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const drawerX = useRef(new Animated.Value(-280)).current;
 	const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -150,8 +153,15 @@ export default function Index() {
 				<View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
 					<Ionicons name="person-circle" size={48} color={colors.primary} />
 					<View>
-						<Text style={[styles.drawerTitle, { color: colors.text }]}>Officer</Text>
-						<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }]}>dispatcher@agency.gov</Text>
+						<Text style={[styles.drawerTitle, { color: colors.text }]}>
+							{user?.user_metadata?.first_name ? 
+								`${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : 
+								'Officer'
+							}
+						</Text>
+						<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }]}>
+							Badge #{user?.user_metadata?.badge_number || 'N/A'}
+						</Text>
 					</View>
 				</View>
 				<View style={styles.menuList}>
@@ -160,11 +170,23 @@ export default function Index() {
 					<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
 				</View>
 				<View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
-					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={() => { closeMenu(); router.replace('/login'); }} colors={colors} />
+					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={async () => { 
+						closeMenu(); 
+						await signOut();
+						router.replace('/login'); 
+					}} colors={colors} />
 				</View>
 			</Animated.View>
 
 		</SafeAreaView>
+	);
+}
+
+export default function Index() {
+	return (
+		<AuthGuard>
+			<IndexContent />
+		</AuthGuard>
 	);
 }
 

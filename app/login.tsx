@@ -1,28 +1,33 @@
+import { useOfficerAuth } from '@/contexts/auth-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { signIn, isLoading, error } = useOfficerAuth();
     const [badgeNumber, setBadgeNumber] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [localError, setLocalError] = useState<string | null>(null);
 
     async function handleSignIn() {
         if (!badgeNumber || !password) {
-            Alert.alert('Missing information', 'Please enter your badge number and password.');
+            setLocalError('Please enter your badge number and password.');
             return;
         }
         
-        setLoading(true);
-        // Simulate sign in
-        setTimeout(() => {
-            setLoading(false);
+        setLocalError(null);
+        const result = await signIn(badgeNumber, password);
+        
+        if (result.error) {
+            setLocalError(result.error);
+        } else {
+            // Successful login - navigation will be handled by auth state changes
             router.replace('/');
-        }, 800);
+        }
     }
 
     // Light theme colors
@@ -113,18 +118,27 @@ export default function LoginScreen() {
                 </View>
             </View>
 
+            {/* Error Display */}
+            {(error || localError) && (
+                <View style={{ marginTop: 16, padding: 12, backgroundColor: '#FEE2E2', borderRadius: 8 }}>
+                    <Text style={{ color: '#DC2626', fontSize: 14, textAlign: 'center' }}>
+                        {error || localError}
+                    </Text>
+                </View>
+            )}
+
             {/* Login Button */}
             <TouchableOpacity
                 style={{ 
                     marginTop: 24,
                     borderRadius: 12,
                     paddingVertical: 16,
-                    backgroundColor: tintColor
+                    backgroundColor: isLoading ? '#9CA3AF' : tintColor
                 }}
                 onPress={handleSignIn}
-                disabled={loading}>
+                disabled={isLoading}>
                 <Text style={{ textAlign: 'center', fontSize: 16, fontWeight: '600', color: 'white' }}>
-                    {loading ? 'LOADING...' : 'LOGIN'}
+                    {isLoading ? 'SIGNING IN...' : 'LOGIN'}
                 </Text>
             </TouchableOpacity>
 

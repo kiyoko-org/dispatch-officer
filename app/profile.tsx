@@ -1,30 +1,36 @@
+import { AuthGuard } from '@/components/auth-guard';
 import { NavBar } from '@/components/nav-bar';
+import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Mock officer data - in a real app this would come from authentication/database
-const OFFICER_DATA = {
-  id: 'OFF-2024-001',
-  name: 'Officer Juan Dela Cruz',
-  rank: 'Police Officer III',
-  badge_number: 'PO3-12345',
-  station: 'Tuguegarao City Police Station',
-  department: 'Traffic Management Division',
-  email: 'juan.delacruz@pnp.gov.ph',
-  phone: '+63 912 345 6789',
-  joined_date: 'January 15, 2020',
-  status: 'Active',
-  assigned_area: 'Tuguegarao City Center',
-  total_reports: 47,
-  resolved_reports: 42,
-  pending_reports: 5,
-};
-
-export default function ProfileScreen() {
+function ProfileScreenContent() {
   const { colors } = useTheme();
+  const { user, signOut } = useOfficerAuth();
+
+  // Get user data from authentication context
+  const officerData = {
+    id: user?.id || 'N/A',
+    name: user?.user_metadata?.first_name && user?.user_metadata?.last_name 
+      ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+      : 'Officer',
+    rank: user?.user_metadata?.rank || 'Police Officer',
+    badge_number: user?.user_metadata?.badge_number || 'N/A',
+    email: user?.email || 'N/A',
+    // These would come from additional database queries in a real app
+    station: 'Tuguegarao City Police Station',
+    department: 'Traffic Management Division',
+    phone: '+63 912 345 6789',
+    joined_date: 'January 15, 2020',
+    status: 'Active',
+    assigned_area: 'Tuguegarao City Center',
+    total_reports: 47,
+    resolved_reports: 42,
+    pending_reports: 5,
+  };
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -43,11 +49,11 @@ export default function ProfileScreen() {
           <View style={[styles.avatarContainer, { backgroundColor: colors.primary }]}>
             <Ionicons name="person" size={48} color="#FFFFFF" />
           </View>
-          <Text style={[styles.name, { color: colors.text }]}>{OFFICER_DATA.name}</Text>
-          <Text style={[styles.rank, { color: colors.textSecondary }]}>{OFFICER_DATA.rank}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>{officerData.name}</Text>
+          <Text style={[styles.rank, { color: colors.textSecondary }]}>{officerData.rank}</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
-            <Text style={styles.statusText}>{OFFICER_DATA.status}</Text>
+            <Text style={styles.statusText}>{officerData.status}</Text>
           </View>
         </View>
 
@@ -55,17 +61,17 @@ export default function ProfileScreen() {
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="document-text" size={24} color="#3B82F6" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{OFFICER_DATA.total_reports}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{officerData.total_reports}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Reports</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{OFFICER_DATA.resolved_reports}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{officerData.resolved_reports}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Resolved</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="time" size={24} color="#F59E0B" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{OFFICER_DATA.pending_reports}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{officerData.pending_reports}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pending</Text>
           </View>
         </View>
@@ -75,13 +81,13 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Personal Information</Text>
           
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-            <InfoRow icon="card" label="Badge Number" value={OFFICER_DATA.badge_number} colors={colors} />
+            <InfoRow icon="card" label="Badge Number" value={officerData.badge_number} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="briefcase" label="Department" value={OFFICER_DATA.department} colors={colors} />
+            <InfoRow icon="briefcase" label="Department" value={officerData.department} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="business" label="Station" value={OFFICER_DATA.station} colors={colors} />
+            <InfoRow icon="business" label="Station" value={officerData.station} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="location" label="Assigned Area" value={OFFICER_DATA.assigned_area} colors={colors} />
+            <InfoRow icon="location" label="Assigned Area" value={officerData.assigned_area} colors={colors} />
           </View>
         </View>
 
@@ -90,9 +96,9 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Information</Text>
           
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-            <InfoRow icon="mail" label="Email" value={OFFICER_DATA.email} colors={colors} />
+            <InfoRow icon="mail" label="Email" value={officerData.email} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="call" label="Phone Number" value={OFFICER_DATA.phone} colors={colors} />
+            <InfoRow icon="call" label="Phone Number" value={officerData.phone} colors={colors} />
           </View>
         </View>
 
@@ -101,9 +107,9 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Service Information</Text>
           
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-            <InfoRow icon="calendar" label="Joined PNP" value={OFFICER_DATA.joined_date} colors={colors} />
+            <InfoRow icon="calendar" label="Joined PNP" value={officerData.joined_date} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="shield-checkmark" label="Officer ID" value={OFFICER_DATA.id} colors={colors} />
+            <InfoRow icon="shield-checkmark" label="Officer ID" value={officerData.id} colors={colors} />
           </View>
         </View>
 
@@ -114,7 +120,12 @@ export default function ProfileScreen() {
             <Text style={[styles.actionButtonText, { color: colors.primary }]}>Edit Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.logoutButton]}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.logoutButton]}
+            onPress={async () => {
+              await signOut();
+              router.replace('/login');
+            }}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={[styles.actionButtonText, styles.logoutButtonText]}>Log Out</Text>
           </TouchableOpacity>
@@ -123,6 +134,14 @@ export default function ProfileScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function ProfileScreen() {
+  return (
+    <AuthGuard>
+      <ProfileScreenContent />
+    </AuthGuard>
   );
 }
 
