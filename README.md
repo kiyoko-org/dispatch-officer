@@ -10,11 +10,44 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Choose your development method:
+
+### Method A: Development with Expo Go
 
    ```bash
    npx expo start
    ```
+
+### Method B: Native Android Build (Recommended for Full Features)
+
+1. Set up Firebase and get `google-services.json`:
+   - Go to [Firebase Console](https://console.firebase.google.com)
+   - Create a new project or open existing one
+   - Add an Android app with package name `com.anonymous.dispatchofficer`
+   - Download the `google-services.json` file
+   - Place it in `android/app/google-services.json`
+
+2. Set the environment variable for Google Services:
+   ```powershell
+   $env:GOOGLE_SERVICES_JSON="android\app\google-services.json"
+   ```
+
+3. Run the Android build script:
+   ```powershell
+   .\build-android-on-windows.ps1
+   ```
+
+   This script will:
+   - Generate native Android files
+   - Install Android SDK dependencies if needed
+   - Build and install the app on your connected device
+   - Start the Metro bundler for development
+
+4. Requirements:
+   - Android Studio with Android SDK installed
+   - Android device connected via USB with USB debugging enabled
+   - Java Development Kit (JDK) installed
+   - Environment variables set up properly (ANDROID_HOME, JAVA_HOME)
 
 In the output, you'll find options to open the app in a
 
@@ -34,6 +67,29 @@ npm run reset-project
 ```
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+## Troubleshooting Android Build
+
+If you encounter any issues during the Android build process:
+
+1. Missing `gradlew.bat`:
+   - Run `npx expo prebuild -p android` to regenerate native files
+   - Then run the build script again
+
+2. Google Services issues:
+   - Ensure `google-services.json` is in the correct location
+   - Verify the package name matches in both files
+   - Make sure the environment variable is set correctly
+
+3. Build failures:
+   - Try cleaning the build: `cd android && .\gradlew clean`
+   - Update Android SDK tools in Android Studio
+   - Check Java version compatibility
+
+4. Device connection issues:
+   - Enable USB debugging on your device
+   - Try different USB ports or cables
+   - Run `adb devices` to verify device connection
 
 ## Learn more
 
