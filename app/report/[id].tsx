@@ -5,13 +5,96 @@ import { Ionicons } from '@expo/vector-icons';
 import { useReports } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+
+// Dark mode map style for Google Maps
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+  {
+    featureType: 'administrative.locality',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#d59563' }],
+  },
+  {
+    featureType: 'poi',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#d59563' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'geometry',
+    stylers: [{ color: '#263c3f' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#6b9a76' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#38414e' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#212a37' }],
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#9ca5b3' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ color: '#746855' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#1f2835' }],
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#f3d19c' }],
+  },
+  {
+    featureType: 'transit',
+    elementType: 'geometry',
+    stylers: [{ color: '#2f3948' }],
+  },
+  {
+    featureType: 'transit.station',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#d59563' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#17263c' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#515c6d' }],
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#17263c' }],
+  },
+];
 
 export default function ReportDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, activeTheme } = useTheme();
   const { getReportInfo } = useReports();
 
   const numericId = useMemo(() => {
@@ -80,6 +163,32 @@ export default function ReportDetailsScreen() {
   const latitude = report.latitude ?? report.coordinates?.latitude;
   const longitude = report.longitude ?? report.coordinates?.longitude;
 
+  async function openDrivingNavigation(lat: number, lng: number, label?: string) {
+    const encodedLabel = encodeURIComponent(label || 'Destination');
+    const googleMapsAppUrl = `google.navigation:q=${lat},${lng}`; // Android Google Maps intent
+    const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&destination_place_id=${encodedLabel}`;
+    const appleMapsUrl = `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
+    try {
+      if (Platform.OS === 'ios') {
+        const canOpenApple = await Linking.canOpenURL('maps://');
+        if (canOpenApple) {
+          await Linking.openURL(`maps://?daddr=${lat},${lng}&dirflg=d`);
+          return;
+        }
+        await Linking.openURL(appleMapsUrl);
+        return;
+      }
+      const canOpenGoogle = await Linking.canOpenURL(googleMapsAppUrl);
+      if (canOpenGoogle) {
+        await Linking.openURL(googleMapsAppUrl);
+        return;
+      }
+      await Linking.openURL(googleMapsWebUrl);
+    } catch {
+      // no-op: let the tap do nothing if maps cannot be opened
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -123,27 +232,61 @@ export default function ReportDetailsScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Location</Text>
           
-          {/* Map Preview - Full Width */}
+          {/* Embedded Map */}
           {(latitude != null && longitude != null) ? (
-            <TouchableOpacity
-              style={styles.mapPreview}
-              onPress={() => setShowMapModal(true)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map" size={64} color={colors.primary} />
-                <Text style={[styles.mapPlaceholderTitle, { color: colors.primary }]}>Location Map</Text>
-                <Text style={[styles.mapPlaceholderText, { color: colors.primary }]}>
-                  {Number(latitude).toFixed(6)}, {Number(longitude).toFixed(6)}
-                </Text>
-              </View>
-              <View style={styles.mapPreviewOverlay}>
+            <View style={styles.mapContainer}>
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={styles.embeddedMap}
+                customMapStyle={activeTheme === 'dark' ? darkMapStyle : []}
+                initialRegion={{
+                  latitude: Number(latitude),
+                  longitude: Number(longitude),
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: Number(latitude),
+                    longitude: Number(longitude),
+                  }}
+                  title={report.incident_title || `Report #${report.id}`}
+                  description={report.street_address || ''}
+                >
+                  <View style={styles.incidentMarker}>
+                    <Ionicons name="location" color="#DC2626" size={28} />
+                  </View>
+                </Marker>
+              </MapView>
+              
+              {/* Map Overlay with Actions */}
+              <TouchableOpacity
+                style={styles.mapOverlayButton}
+                onPress={() => setShowMapModal(true)}
+                activeOpacity={0.9}
+              >
                 <View style={styles.mapExpandButton}>
-                  <Ionicons name="navigate" size={20} color="#FFFFFF" />
-                  <Text style={styles.mapExpandText}>Tap to view full map & directions</Text>
+                  <Ionicons name="expand" size={18} color="#FFFFFF" />
+                  <Text style={styles.mapExpandText}>View Full Map</Text>
                 </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.mapNavigateButton}
+                onPress={() => openDrivingNavigation(Number(latitude), Number(longitude), report.incident_title || `Report #${report.id}`)}
+                activeOpacity={0.9}
+              >
+                <View style={styles.navigateButtonInner}>
+                  <Ionicons name="navigate" size={18} color="#FFFFFF" />
+                  <Text style={styles.navigateButtonText}>Navigate</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={[styles.mapPreview, { justifyContent: 'center', alignItems: 'center' }]}>
               <Text style={{ color: colors.textSecondary }}>No coordinates available</Text>
@@ -161,6 +304,11 @@ export default function ReportDetailsScreen() {
                 </Text>
                 {report.nearby_landmark && (
                   <Text style={[styles.infoTextSecondary, { color: colors.textSecondary }]}>Near: {report.nearby_landmark}</Text>
+                )}
+                {(latitude != null && longitude != null) && (
+                  <Text style={[styles.coordinatesText, { color: colors.textSecondary }]}>
+                    {Number(latitude).toFixed(6)}, {Number(longitude).toFixed(6)}
+                  </Text>
                 )}
               </View>
             </View>
@@ -353,6 +501,54 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'flex-start',
   },
+  mapContainer: {
+    width: '100%',
+    height: 250,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    position: 'relative',
+  },
+  embeddedMap: {
+    width: '100%',
+    height: '100%',
+  },
+  mapOverlayButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  mapNavigateButton: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+  },
+  navigateButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  navigateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  incidentMarker: {
+    width: 32,
+    height: 32,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mapPreview: {
     width: '100%',
     height: 200,
@@ -440,6 +636,11 @@ const styles = StyleSheet.create({
   infoTextSecondary: {
     fontSize: 14,
     marginTop: 2,
+  },
+  coordinatesText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontFamily: 'monospace',
   },
   categoryBadge: {
     alignSelf: 'flex-start',
