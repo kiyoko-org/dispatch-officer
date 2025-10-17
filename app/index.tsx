@@ -2,6 +2,7 @@ import { AuthGuard } from '@/components/auth-guard';
 import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
+import { NotificationService } from '@/services/notification-service';
 import { Ionicons } from '@expo/vector-icons';
 import { useOfficers, useReports } from 'dispatch-lib';
 import { useRouter } from 'expo-router';
@@ -26,6 +27,8 @@ function IndexContent() {
 	const { getReportInfo } = useReports();
 	const [isFetching, setIsFetching] = useState(true);
 	const [assignedReport, setAssignedReport] = useState<any | null>(null);
+	const previousReportIdRef = useRef<number | null | undefined>(undefined);
+	const initializedAssignmentRef = useRef<boolean>(false);
 
 	async function loadAssignedReport() {
 		if (!assignedReportId) {
@@ -45,6 +48,40 @@ function IndexContent() {
 		}
 	}
 
+	// Initialize notifications on mount
+	useEffect(() => {
+		let mounted = true;
+
+		async function setupNotifications() {
+			// Register for push notifications (requests permission and retrieves FCM token on Android)
+			const deviceToken = await NotificationService.registerForPushNotifications();
+			if (deviceToken) {
+				console.log('[Notifications] Registered device token:', deviceToken);
+				// TODO: Persist the token to backend for this officer so the server can send push notifications
+				// Example: await dispatchClient.officers.savePushToken(user.id, deviceToken)
+			}
+
+			// Set up notification listeners
+			NotificationService.setupNotificationListeners(
+				undefined, // onNotificationReceived
+				(response) => {
+					// Handle notification tap - navigate to the report
+					const reportId = response.notification.request.content.data?.reportId;
+					if (reportId && mounted) {
+						router.push(`/report/${reportId}` as any);
+					}
+				}
+			);
+		}
+
+		setupNotifications();
+
+		return () => {
+			mounted = false;
+			NotificationService.removeNotificationListeners();
+		};
+	}, [router]);
+
 	useEffect(() => {
 		// Load when officer data ready or assignedReportId changes
 		if (!officersLoading) {
@@ -52,6 +89,29 @@ function IndexContent() {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [officersLoading, assignedReportId]);
+
+	// Monitor for new assigned reports and trigger notification ASAP (without waiting for fetch)
+	useEffect(() => {
+		// Capture the initial value once without notifying
+		if (!initializedAssignmentRef.current) {
+			initializedAssignmentRef.current = true;
+			previousReportIdRef.current = assignedReportId;
+			return;
+		}
+
+		const hasNewAssignment = assignedReportId != null && assignedReportId !== previousReportIdRef.current;
+		if (hasNewAssignment) {
+			console.log('[Notifications] New assignment detected for report ID:', assignedReportId);
+			NotificationService.scheduleNewReportNotification({
+				id: assignedReportId!,
+				title: assignedReport?.incident_title || `Report #${assignedReportId}`,
+				description: assignedReport?.what_happened || assignedReport?.brief_description,
+				location: assignedReport?.street_address,
+			});
+		}
+
+		previousReportIdRef.current = assignedReportId;
+	}, [assignedReportId, assignedReport?.incident_title, assignedReport?.what_happened, assignedReport?.brief_description, assignedReport?.street_address]);
 
 	function handleReportPress(reportId: number) {
 		router.push(`/report/${reportId}` as any);
@@ -139,6 +199,18 @@ function IndexContent() {
 						</View>
 					}
 				/>
+			)}
+
+			{/* Dev-only: quick notification test trigger (only visible with no assigned report) */}
+			{!assignedReport && !isFetching && (
+				<View style={{ padding: 16 }}>
+					<TouchableOpacity
+						style={{ alignSelf: 'center', backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 }}
+						onPress={() => NotificationService.scheduleNewReportNotification({ id: 9999, title: 'Test notification', description: 'If you see this, notifications work.' })}
+					>
+						<Text style={{ color: '#fff', fontWeight: '600' }}>Send Test Notification</Text>
+					</TouchableOpacity>
+				</View>
 			)}
 
 			{/* Floating sidebar + backdrop */}

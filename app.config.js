@@ -21,6 +21,8 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: 'com.anonymous.dispatchofficer',
+  // Use env override if set, otherwise default to the common location
+  googleServicesFile: process.env.GOOGLE_SERVICES_JSON || './android/app/google-services.json',
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY,
@@ -43,6 +45,14 @@ export default {
           dark: {
             backgroundColor: '#000000',
           },
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          icon: './assets/images/icon.png',
+          color: '#3B82F6',
+          defaultChannel: 'default',
         },
       ],
     ],
