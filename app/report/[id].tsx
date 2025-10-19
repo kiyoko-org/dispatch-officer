@@ -2,7 +2,7 @@ import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useReports } from 'dispatch-lib';
+import { useReports, useCategories } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -96,6 +96,7 @@ export default function ReportDetailsScreen() {
   const router = useRouter();
   const { colors, activeTheme } = useTheme();
   const { getReportInfo } = useReports();
+  const { categories } = useCategories();
 
   const numericId = useMemo(() => {
     const parsed = Number(id);
@@ -106,10 +107,9 @@ export default function ReportDetailsScreen() {
   const [report, setReport] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
-  const [showNotesModal, setShowNotesModal] = useState(false);
-  const [notes, setNotes] = useState('');
+  
 
-  useEffect(() => {
+useEffect(() => {
     let mounted = true;
     async function fetchReport() {
       if (!numericId) {
@@ -127,6 +127,8 @@ export default function ReportDetailsScreen() {
           setReport(null);
         } else {
           setReport(data || null);
+          
+          
         }
       } finally {
         if (mounted) setLoading(false);
@@ -211,6 +213,9 @@ export default function ReportDetailsScreen() {
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{(report.status || 'pending').toString()}</Text>
           </View>
+          
+          {/* Description */}
+          <Text style={[styles.descriptionText, { color: colors.text, marginTop: 12 }]}>{report.what_happened || report.brief_description || 'No description provided'}</Text>
         </View>
 
         {/* Reporter ID */}
@@ -321,15 +326,16 @@ export default function ReportDetailsScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Category</Text>
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{(report.category || 'Uncategorized').toString()}</Text>
+            <Text style={styles.categoryText}>
+              {(() => {
+                const category = categories?.find((cat: any) => cat.id === report.category_id);
+                return category?.name || report.category || 'Uncategorized';
+              })()}
+            </Text>
           </View>
         </View>
 
-        {/* Description */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Description</Text>
-          <Text style={[styles.descriptionText, { color: colors.text }]}>{report.what_happened || report.brief_description || 'No description provided'}</Text>
-        </View>
+        
 
         {/* Involved Parties */}
         {report.who_was_involved && (
