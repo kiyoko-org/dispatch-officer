@@ -127,6 +127,7 @@ useEffect(() => {
           setReport(null);
         } else {
           setReport(data || null);
+          console.log('Attachments from report:', data?.attachments);
           
           
         }
@@ -423,22 +424,42 @@ useEffect(() => {
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Attachments</Text>
             <View style={styles.attachmentsContainer}>
-              {report.attachments.map((attachment: any, index: number) => (
-                <View key={index} style={[styles.attachmentItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <Ionicons name="document-outline" size={20} color={colors.primary} />
-                  <View style={styles.attachmentInfo}>
-                    <Text style={[styles.attachmentName, { color: colors.text }]}>
-                      {attachment.name || `Attachment ${index + 1}`}
-                    </Text>
-                    <Text style={[styles.attachmentType, { color: colors.textSecondary }]}>
-                      {attachment.type || 'Unknown type'}
-                    </Text>
+              {report.attachments.map((attachment: any, index: number) => {
+                const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
+                const filename = attachmentStr.split('/').pop() || `Attachment ${index + 1}`;
+                const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
+                const getFileIcon = (ext: string) => {
+                  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image-outline';
+                  if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'videocam-outline';
+                  if (['mp3', 'wav', 'm4a', 'aac'].includes(ext)) return 'musical-notes-outline';
+                  if (['pdf'].includes(ext)) return 'document-text-outline';
+                  return 'document-outline';
+                };
+                const getFileType = (ext: string) => {
+                  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'Image';
+                  if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'Video';
+                  if (['mp3', 'wav', 'm4a', 'aac'].includes(ext)) return 'Audio';
+                  if (['pdf'].includes(ext)) return 'PDF';
+                  return ext.toUpperCase() || 'File';
+                };
+                
+                return (
+                  <View key={index} style={[styles.attachmentItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Ionicons name={getFileIcon(fileExtension)} size={20} color={colors.primary} />
+                    <View style={styles.attachmentInfo}>
+                      <Text style={[styles.attachmentName, { color: colors.text }]}>
+                        {filename}
+                      </Text>
+                      <Text style={[styles.attachmentType, { color: colors.textSecondary }]}>
+                        {getFileType(fileExtension)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => {}}>
+                      <Ionicons name="download-outline" size={20} color={colors.primary} />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity onPress={() => {}}>
-                    <Ionicons name="download-outline" size={20} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         )}
