@@ -387,30 +387,7 @@ export default function ReportDetailsScreen() {
           </View>
         )}
 
-        {/* Flags */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Report Flags</Text>
-          <View style={styles.flagsContainer}>
-            {report.request_follow_up && (
-              <View style={styles.flagBadge}>
-                <Ionicons name="refresh-outline" size={14} color="#1E40AF" />
-                <Text style={styles.flagText}>Follow-up Requested</Text>
-              </View>
-            )}
-            {report.share_with_community && (
-              <View style={styles.flagBadge}>
-                <Ionicons name="people-outline" size={14} color="#1E40AF" />
-                <Text style={styles.flagText}>Share with Community</Text>
-              </View>
-            )}
-            {report.is_anonymous && (
-              <View style={styles.flagBadge}>
-                <Ionicons name="eye-off-outline" size={14} color="#1E40AF" />
-                <Text style={styles.flagText}>Anonymous</Text>
-              </View>
-            )}
-          </View>
-        </View>
+        
 
         
       </ScrollView>
@@ -649,25 +626,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  flagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  flagBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
-  },
-  flagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1E40AF',
-  },
+  
   actionButtons: {
     marginTop: 16,
     marginBottom: 32,
