@@ -132,32 +132,29 @@ useEffect(() => {
           setReport(data || null);
           console.log('Attachments from report:', data?.attachments);
           
-          if (data?.attachments && data.attachments.length > 0) {
-            const dispatchClient = getDispatchClient();
-            const urls: { [key: string]: string } = {};
-            
-            for (const attachment of data.attachments) {
-              const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
-              const fileExtension = attachmentStr.split('.').pop()?.toLowerCase() || '';
-              
-              if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
-                try {
-                  const { data: signedUrlData } = await dispatchClient.supabaseClient.storage
-                    .from('attachments')
-                    .createSignedUrl(attachmentStr, 3600);
-                  if (signedUrlData?.signedUrl) {
-                    urls[attachmentStr] = signedUrlData.signedUrl;
-                  }
-                } catch (err) {
-                  console.error('Failed to create signed URL for:', attachmentStr, err);
-                }
-              }
-            }
-            
-            if (mounted) {
-              setAttachmentUrls(urls);
-            }
-          }
+           if (data?.attachments && data.attachments.length > 0) {
+             const dispatchClient = getDispatchClient();
+             const urls: { [key: string]: string } = {};
+             
+             for (const attachment of data.attachments) {
+               const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
+               
+               try {
+                 const { data: signedUrlData } = await dispatchClient.supabaseClient.storage
+                   .from('attachments')
+                   .createSignedUrl(attachmentStr, 3600);
+                 if (signedUrlData?.signedUrl) {
+                   urls[attachmentStr] = signedUrlData.signedUrl;
+                 }
+               } catch (err) {
+                 console.error('Failed to create signed URL for:', attachmentStr, err);
+               }
+             }
+             
+             if (mounted) {
+               setAttachmentUrls(urls);
+             }
+           }
         }
       } finally {
         if (mounted) setLoading(false);
