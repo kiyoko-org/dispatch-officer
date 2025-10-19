@@ -379,6 +379,64 @@ export default function ReportDetailsScreen() {
           </View>
         )}
 
+        {/* Witness Contact Info */}
+        {report.witness_contact_info && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Witness Contact Information</Text>
+            <Text style={[styles.sectionValue, { color: colors.text }]}>{report.witness_contact_info}</Text>
+          </View>
+        )}
+
+        {/* Officers Involved */}
+        {report.officers_involved && report.officers_involved.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Officers Involved</Text>
+            {report.officers_involved.map((officer: any, index: number) => (
+              <Text key={index} style={[styles.sectionValue, { color: colors.text }]}>
+                {officer.name || officer.id || `Officer ${index + 1}`}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        {/* Resolution Date */}
+        {report.resolved_at && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Resolved Date</Text>
+            <View style={styles.infoRow}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={colors.textSecondary} />
+              <Text style={[styles.infoText, { color: colors.text }]}>
+                {new Date(report.resolved_at).toLocaleDateString()} at {new Date(report.resolved_at).toLocaleTimeString()}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Attachments */}
+        {report.attachments && report.attachments.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Attachments</Text>
+            <View style={styles.attachmentsContainer}>
+              {report.attachments.map((attachment: any, index: number) => (
+                <View key={index} style={[styles.attachmentItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <Ionicons name="document-outline" size={20} color={colors.primary} />
+                  <View style={styles.attachmentInfo}>
+                    <Text style={[styles.attachmentName, { color: colors.text }]}>
+                      {attachment.name || `Attachment ${index + 1}`}
+                    </Text>
+                    <Text style={[styles.attachmentType, { color: colors.textSecondary }]}>
+                      {attachment.type || 'Unknown type'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => {}}>
+                    <Ionicons name="download-outline" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Additional Info */}
         {report.additional_info && (
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -625,6 +683,28 @@ const styles = StyleSheet.create({
   descriptionText: {
     fontSize: 16,
     lineHeight: 24,
+  },
+  attachmentsContainer: {
+    gap: 8,
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+  },
+  attachmentInfo: {
+    flex: 1,
+  },
+  attachmentName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  attachmentType: {
+    fontSize: 14,
+    marginTop: 2,
   },
   
   actionButtons: {
