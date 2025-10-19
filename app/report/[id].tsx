@@ -1,11 +1,12 @@
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
+import { downloadFile, useStoragePermission } from '@/hooks/use-storage-permission';
 import { Ionicons } from '@expo/vector-icons';
 import { useReports, useCategories, getDispatchClient } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -97,6 +98,7 @@ export default function ReportDetailsScreen() {
   const { colors, activeTheme } = useTheme();
   const { getReportInfo } = useReports();
   const { categories } = useCategories();
+  const { requestStoragePermission } = useStoragePermission();
 
   const numericId = useMemo(() => {
     const parsed = Number(id);
@@ -108,6 +110,7 @@ export default function ReportDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [attachmentUrls, setAttachmentUrls] = useState<{ [key: string]: string }>({});
+  const [downloadingAttachments, setDownloadingAttachments] = useState<Set<string>>(new Set());
 
 useEffect(() => {
     let mounted = true;
@@ -216,6 +219,47 @@ useEffect(() => {
       await Linking.openURL(googleMapsWebUrl);
     } catch {
       // no-op: let the tap do nothing if maps cannot be opened
+    }
+  }
+
+  async function handleDownloadAttachment(attachmentPath: string, filename: string) {
+    setDownloadingAttachments(prev => new Set(prev).add(attachmentPath));
+    
+    try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission && Platform.OS !== 'web') {
+        setDownloadingAttachments(prev => {
+          const next = new Set(prev);
+          next.delete(attachmentPath);
+          return next;
+        });
+        return;
+      }
+
+      const signedUrl = attachmentUrls[attachmentPath];
+      if (!signedUrl) {
+        Alert.alert('Error', 'Could not find signed URL for this attachment.');
+        setDownloadingAttachments(prev => {
+          const next = new Set(prev);
+          next.delete(attachmentPath);
+          return next;
+        });
+        return;
+      }
+
+      const success = await downloadFile(signedUrl, filename);
+      if (success) {
+        console.log('Download completed for:', filename);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      Alert.alert('Download Failed', 'An error occurred while downloading the file.');
+    } finally {
+      setDownloadingAttachments(prev => {
+        const next = new Set(prev);
+        next.delete(attachmentPath);
+        return next;
+      });
     }
   }
 
@@ -489,8 +533,16 @@ useEffect(() => {
                         {getFileType(fileExtension)}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => {}}>
-                      <Ionicons name="download-outline" size={20} color={colors.primary} />
+                    <TouchableOpacity 
+                      onPress={() => handleDownloadAttachment(attachmentStr, filename)}
+                      disabled={downloadingAttachments.has(attachmentStr)}
+                      style={{ opacity: downloadingAttachments.has(attachmentStr) ? 0.5 : 1 }}
+                    >
+                      {downloadingAttachments.has(attachmentStr) ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Ionicons name="download-outline" size={20} color={colors.primary} />
+                      )}
                     </TouchableOpacity>
                   </View>
                 );
@@ -764,14 +816,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  attachmentType: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  attachmentType: {
-    fontSize: 14,
-    marginTop: 2,
-  },
+   attachmentType: {
+     fontSize: 14,
+     marginTop: 2,
+   },
   attachmentThumbnail: {
     width: 48,
     height: 48,
