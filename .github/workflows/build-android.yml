@@ -61,6 +61,9 @@ jobs:
       - name: Run prebuild
         run: npx expo prebuild --platform android --clean
 
+      - name: Decode and place google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
