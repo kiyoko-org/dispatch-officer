@@ -57,8 +57,6 @@ function IndexContent() {
 			const deviceToken = await NotificationService.registerForPushNotifications();
 			if (deviceToken) {
 				console.log('[Notifications] Registered device token:', deviceToken);
-				// TODO: Persist the token to backend for this officer so the server can send push notifications
-				// Example: await dispatchClient.officers.savePushToken(user.id, deviceToken)
 			}
 
 			// Set up notification listeners

@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { getDispatchClient } from "dispatch-lib";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { NotificationService } from "@/services/notification-service";
 
 export type OfficerAuthState = {
   user: User | null;
@@ -172,11 +173,47 @@ export function CustomOfficerAuthProvider({ children }: OfficerAuthProviderProps
     };
   }, [dispatchClient]);
 
+  const updateOfficerWithFCMToken = async () => {
+    try {
+      const { data: { user }, error: userError } = await dispatchClient.auth.getUser();
+      if (userError || !user?.id) {
+        console.warn('[Auth] Unable to get user ID for FCM token update');
+        return;
+      }
+
+      const deviceToken = await NotificationService.registerForPushNotifications();
+      
+      if (!deviceToken) {
+        console.log('[Auth] No device token available (may be iOS or token not ready)');
+        return;
+      }
+
+      const { error: updateError } = await dispatchClient.updateOfficer(user.id, {
+        fcm_token: deviceToken,
+      } as any);
+
+      if (updateError) {
+        console.warn('[Auth] Failed to update FCM token:', updateError);
+        return;
+      }
+
+      console.log('[Auth] FCM token successfully updated for officer');
+    } catch (error) {
+      console.warn('[Auth] Error in updateOfficerWithFCMToken:', error instanceof Error ? error.message : error);
+    }
+  };
+
   const signIn = async (badgeNumber: string, password: string) => {
     try {
-      // Use the officerLogin method from DispatchClient
       const result = await dispatchClient.officerLogin(badgeNumber, password);
       if (result.error) return { error: result.error };
+      
+      try {
+        await updateOfficerWithFCMToken();
+      } catch (error) {
+        console.warn('[Auth] FCM token update failed (non-critical):', error instanceof Error ? error.message : error);
+      }
+      
       return {};
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Login failed' };
