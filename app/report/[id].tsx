@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useReports } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -106,6 +106,8 @@ export default function ReportDetailsScreen() {
   const [report, setReport] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -410,18 +412,7 @@ export default function ReportDetailsScreen() {
           </View>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]}>
-            <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.primaryButtonText}>Mark as Resolved</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.secondaryButton, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-            <Ionicons name="document-text-outline" size={20} color={colors.primary} />
-            <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Add Notes</Text>
-          </TouchableOpacity>
-        </View>
+        
       </ScrollView>
 
       {/* Location Map Modal */}
