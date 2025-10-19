@@ -2,10 +2,10 @@ import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useReports, useCategories } from 'dispatch-lib';
+import { useReports, useCategories, getDispatchClient } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -107,7 +107,7 @@ export default function ReportDetailsScreen() {
   const [report, setReport] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
-  
+  const [attachmentUrls, setAttachmentUrls] = useState<{ [key: string]: string }>({});
 
 useEffect(() => {
     let mounted = true;
@@ -129,7 +129,32 @@ useEffect(() => {
           setReport(data || null);
           console.log('Attachments from report:', data?.attachments);
           
-          
+          if (data?.attachments && data.attachments.length > 0) {
+            const dispatchClient = getDispatchClient();
+            const urls: { [key: string]: string } = {};
+            
+            for (const attachment of data.attachments) {
+              const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
+              const fileExtension = attachmentStr.split('.').pop()?.toLowerCase() || '';
+              
+              if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                try {
+                  const { data: signedUrlData } = await dispatchClient.supabaseClient.storage
+                    .from('attachments')
+                    .createSignedUrl(attachmentStr, 3600);
+                  if (signedUrlData?.signedUrl) {
+                    urls[attachmentStr] = signedUrlData.signedUrl;
+                  }
+                } catch (err) {
+                  console.error('Failed to create signed URL for:', attachmentStr, err);
+                }
+              }
+            }
+            
+            if (mounted) {
+              setAttachmentUrls(urls);
+            }
+          }
         }
       } finally {
         if (mounted) setLoading(false);
@@ -428,6 +453,9 @@ useEffect(() => {
                 const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
                 const filename = attachmentStr.split('/').pop() || `Attachment ${index + 1}`;
                 const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
+                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension);
+                const signedUrl = attachmentUrls[attachmentStr];
+                
                 const getFileIcon = (ext: string) => {
                   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image-outline';
                   if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'videocam-outline';
@@ -445,7 +473,14 @@ useEffect(() => {
                 
                 return (
                   <View key={index} style={[styles.attachmentItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <Ionicons name={getFileIcon(fileExtension)} size={20} color={colors.primary} />
+                    {isImage && signedUrl ? (
+                      <Image
+                        source={{ uri: signedUrl }}
+                        style={styles.attachmentThumbnail}
+                      />
+                    ) : (
+                      <Ionicons name={getFileIcon(fileExtension)} size={20} color={colors.primary} />
+                    )}
                     <View style={styles.attachmentInfo}>
                       <Text style={[styles.attachmentName, { color: colors.text }]}>
                         {filename}
@@ -733,7 +768,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
-  
+  attachmentType: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  attachmentThumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+  },
   actionButtons: {
     marginTop: 16,
     marginBottom: 32,
