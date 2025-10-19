@@ -113,77 +113,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Location Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Location</Text>
-          
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <SettingRow
-              icon="location-outline"
-              title="Location Services"
-              description="Enable real-time location tracking"
-              colors={colors}
-              rightComponent={<Switch value={true} onValueChange={() => {}} />}
-            />
-          </View>
-        </View>
-
-        {/* Preferences Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Preferences</Text>
-          
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <SettingRow
-              icon="map-outline"
-              title="Default Map Provider"
-              description="Google Maps"
-              colors={colors}
-              onPress={() => {}}
-            />
-            
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            
-            <SettingRow
-              icon="notifications-outline"
-              title="Notification Sound"
-              description="Default"
-              colors={colors}
-              onPress={() => {}}
-            />
-          </View>
-        </View>
-
-        {/* About Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
-          
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <SettingRow
-              icon="information-circle-outline"
-              title="App Version"
-              description="1.0.0"
-              colors={colors}
-            />
-            
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            
-            <SettingRow
-              icon="document-text-outline"
-              title="Terms of Service"
-              colors={colors}
-              onPress={() => {}}
-            />
-            
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            
-            <SettingRow
-              icon="shield-checkmark-outline"
-              title="Privacy Policy"
-              colors={colors}
-              onPress={() => {}}
-            />
-          </View>
-        </View>
+        
 
         <View style={styles.bottomPadding} />
       </ScrollView>
