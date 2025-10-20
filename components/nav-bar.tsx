@@ -10,6 +10,7 @@ interface NavBarProps {
 	rightIcon?: keyof typeof Ionicons.glyphMap;
 	showLeftIcon?: boolean;
 	showRightIcon?: boolean;
+	showNotificationBadge?: boolean;
 }
 
 export function NavBar({
@@ -20,6 +21,7 @@ export function NavBar({
 	rightIcon = 'ellipsis-vertical',
 	showLeftIcon = true,
 	showRightIcon = false,
+	showNotificationBadge = false,
 }: NavBarProps) {
 	const { colors } = useTheme();
 	
@@ -46,6 +48,9 @@ export function NavBar({
 					style={styles.headerIconBtn}
 				>
 					<Ionicons name={rightIcon} size={24} color={colors.text} />
+					{showNotificationBadge && (
+						<View style={[styles.badge, { backgroundColor: colors.error }]} />
+					)}
 				</TouchableOpacity>
 			) : (
 				<View style={{ width: 40 }} />
@@ -78,5 +83,13 @@ const styles = StyleSheet.create({
 	headerTitle: {
 		fontSize: 18,
 		fontWeight: '700',
+	},
+	badge: {
+		position: 'absolute',
+		top: 8,
+		right: 8,
+		width: 8,
+		height: 8,
+		borderRadius: 4,
 	},
 });

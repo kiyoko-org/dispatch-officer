@@ -21,6 +21,7 @@ function RootLayoutNav() {
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="resolved-reports" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>

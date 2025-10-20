@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NotificationService } from '@/services/notification-service';
 
 export default function SettingsScreen() {
-  const { themeMode, activeTheme, setThemeMode, colors } = useTheme();
+  const { themeMode, activeTheme, setThemeMode, isAmoledMode, setIsAmoledMode, colors } = useTheme();
 
   const ThemeOption = ({ 
     label, 
@@ -80,6 +80,38 @@ export default function SettingsScreen() {
               <ThemeOption label="Light" value="light" icon="sunny-outline" />
               <ThemeOption label="Dark" value="dark" icon="moon-outline" />
               <ThemeOption label="System" value="system" icon="phone-portrait-outline" />
+              
+              {/* AMOLED Option - Only visible when dark theme is active */}
+              {activeTheme === 'dark' && (
+                <TouchableOpacity
+                  style={[
+                    styles.themeOption,
+                    { 
+                      backgroundColor: colors.card,
+                      borderColor: isAmoledMode ? colors.primary : colors.border,
+                      borderWidth: isAmoledMode ? 2 : 1,
+                    }
+                  ]}
+                  onPress={() => setIsAmoledMode(!isAmoledMode)}
+                >
+                  <View style={styles.themeOptionContent}>
+                    <Ionicons 
+                      name="contrast-outline" 
+                      size={24} 
+                      color={isAmoledMode ? colors.primary : colors.textSecondary} 
+                    />
+                    <Text style={[
+                      styles.themeOptionText,
+                      { color: isAmoledMode ? colors.text : colors.textSecondary }
+                    ]}>
+                      AMOLED
+                    </Text>
+                  </View>
+                  {isAmoledMode && (
+                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={[styles.activeThemeIndicator, { backgroundColor: colors.background }]}>
@@ -89,7 +121,7 @@ export default function SettingsScreen() {
                 color={colors.textSecondary} 
               />
               <Text style={[styles.activeThemeText, { color: colors.textSecondary }]}>
-                Current: {activeTheme === 'dark' ? 'Dark' : 'Light'} Mode
+                Current: {activeTheme === 'dark' ? 'Dark' : 'Light'}
               </Text>
             </View>
           </View>

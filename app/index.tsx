@@ -4,10 +4,11 @@ import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 
 import { Ionicons } from '@expo/vector-icons';
-import { useOfficers, useReports } from 'dispatch-lib';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNotifications, useOfficers, useReports } from 'dispatch-lib';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function IndexContent() {
@@ -15,8 +16,53 @@ function IndexContent() {
 	const { colors } = useTheme();
 	const { user, signOut } = useOfficerAuth();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const [showLogoutModal, setShowLogoutModal] = useState(false);
 	const drawerX = useRef(new Animated.Value(-280)).current;
 	const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+	// Get notifications
+	const { notifications: allNotifications } = useNotifications();
+	const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+
+	// Load read notifications from AsyncStorage
+	useEffect(() => {
+		async function loadReadNotifications() {
+			try {
+				const stored = await AsyncStorage.getItem('readNotifications');
+				if (stored) {
+					setReadNotifications(new Set(JSON.parse(stored)));
+				}
+			} catch (error) {
+				console.error('Error loading read notifications:', error);
+			}
+		}
+		loadReadNotifications();
+	}, []);
+
+	// Reload read notifications when screen comes into focus
+	useFocusEffect(
+		useCallback(() => {
+			async function reloadReadNotifications() {
+				try {
+					const stored = await AsyncStorage.getItem('readNotifications');
+					if (stored) {
+						setReadNotifications(new Set(JSON.parse(stored)));
+					}
+				} catch (error) {
+					console.error('Error loading read notifications:', error);
+				}
+			}
+			reloadReadNotifications();
+		}, [])
+	);
+
+	// Calculate unread count
+	const unreadCount = useMemo(() => {
+		if (!user?.id) return 0;
+		return allNotifications.filter(n => 
+			n.user_id === user.id && !readNotifications.has(n.id)
+		).length;
+	}, [allNotifications, user?.id, readNotifications]);
 
 	// Get officer and assigned report id
 	const { officers, loading: officersLoading } = useOfficers();
@@ -79,6 +125,17 @@ function IndexContent() {
 		]).start(({ finished }) => { if (finished) setIsMenuOpen(false); });
 	}
 
+	function handleLogoutPress() {
+		closeMenu();
+		setShowLogoutModal(true);
+	}
+
+	async function confirmLogout() {
+		setShowLogoutModal(false);
+		await signOut();
+		router.replace('/login');
+	}
+
 	const listData = useMemo(() => (assignedReport ? [assignedReport] : []), [assignedReport]);
 
 	return (
@@ -88,10 +145,13 @@ function IndexContent() {
 				title="Assigned Reports"
 				leftIcon="person-circle-outline"
 				onLeftPress={openMenu}
+				rightIcon="notifications-outline"
+				onRightPress={() => router.push('/notifications')}
 				showLeftIcon={true}
-				showRightIcon={false}
+				showRightIcon={true}
+				showNotificationBadge={unreadCount > 0}
 			/>
-
+			
 			{/* Reports List */}
 			{isFetching ? (
 				<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -178,13 +238,46 @@ function IndexContent() {
 					<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
 				</View>
 				<View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
-					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={async () => { 
-						closeMenu(); 
-						await signOut();
-						router.replace('/login'); 
-					}} colors={colors} />
+					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={handleLogoutPress} colors={colors} />
 				</View>
 			</Animated.View>
+
+			{/* Logout Confirmation Modal */}
+			<Modal
+				visible={showLogoutModal}
+				transparent
+				animationType="fade"
+				onRequestClose={() => setShowLogoutModal(false)}
+			>
+				<View style={styles.modalOverlay}>
+					<View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+						<View style={styles.modalHeader}>
+							<Ionicons name="log-out-outline" size={48} color="#DC2626" />
+						</View>
+						
+						<Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
+						<Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+							Are you sure you want to logout?
+						</Text>
+						
+						<View style={styles.modalButtons}>
+							<TouchableOpacity
+								style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+								onPress={() => setShowLogoutModal(false)}
+							>
+								<Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+							</TouchableOpacity>
+							
+							<TouchableOpacity
+								style={[styles.modalButton, styles.confirmButton]}
+								onPress={confirmLogout}
+							>
+								<Text style={styles.confirmButtonText}>Logout</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</View>
+			</Modal>
 
 		</SafeAreaView>
 	);
@@ -320,6 +413,63 @@ const styles = StyleSheet.create({
 		marginTop: 'auto',
 		padding: 8,
 		borderTopWidth: 1,
+	},
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+	},
+	modalContent: {
+		borderRadius: 16,
+		padding: 24,
+		width: '100%',
+		maxWidth: 400,
+		alignItems: 'center',
+	},
+	modalHeader: {
+		marginBottom: 16,
+	},
+	modalTitle: {
+		fontSize: 24,
+		fontWeight: '700',
+		marginBottom: 8,
+		textAlign: 'center',
+	},
+	modalMessage: {
+		fontSize: 16,
+		textAlign: 'center',
+		marginBottom: 24,
+		lineHeight: 22,
+	},
+	modalButtons: {
+		flexDirection: 'row',
+		gap: 12,
+		width: '100%',
+	},
+	modalButton: {
+		flex: 1,
+		paddingVertical: 14,
+		paddingHorizontal: 20,
+		borderRadius: 10,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	cancelButton: {
+		borderWidth: 1,
+	},
+	cancelButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
+	},
+	confirmButton: {
+		backgroundColor: '#DC2626',
+	},
+	confirmButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#FFFFFF',
 	},
 });
 
