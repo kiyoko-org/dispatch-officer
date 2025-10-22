@@ -202,6 +202,23 @@ function NotificationsContent() {
     loadReadNotifications();
   }, []);
 
+  // Reload read notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      async function reloadReadNotifications() {
+        try {
+          const stored = await AsyncStorage.getItem('readNotifications');
+          if (stored) {
+            setReadNotifications(new Set(JSON.parse(stored)));
+          }
+        } catch (error) {
+          console.error('Error reloading read notifications:', error);
+        }
+      }
+      reloadReadNotifications();
+    }, [])
+  );
+
   // Save read notifications to AsyncStorage whenever it changes
   useEffect(() => {
     async function saveReadNotifications() {
@@ -301,8 +318,8 @@ function NotificationsContent() {
         return newSet;
       });
     } else {
-      // Mark as read when tapped
-      setReadNotifications(prev => new Set(prev).add(item.id));
+      // Don't auto-mark as read - only navigate to report
+      // User can manually mark as read if they want
       
       // Navigate to report
       const reportIdMatch = item.body.match(/#(\d+)/) || item.title?.match(/#(\d+)/);

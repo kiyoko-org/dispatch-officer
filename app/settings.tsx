@@ -1,11 +1,11 @@
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
+import { NotificationService } from '@/services/notification-service';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NotificationService } from '@/services/notification-service';
 
 export default function SettingsScreen() {
   const { themeMode, activeTheme, setThemeMode, isAmoledMode, setIsAmoledMode, colors } = useTheme();

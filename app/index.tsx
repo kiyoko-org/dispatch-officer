@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/theme-context';
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { useNotifications, useOfficers, useReports } from 'dispatch-lib';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -45,24 +46,52 @@ function IndexContent() {
 			async function reloadReadNotifications() {
 				try {
 					const stored = await AsyncStorage.getItem('readNotifications');
-					if (stored) {
-						setReadNotifications(new Set(JSON.parse(stored)));
+					const readSet = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+					setReadNotifications(readSet);
+					
+					// Recalculate unread count after reloading
+					if (user?.id) {
+						const count = allNotifications.filter(n => 
+							n.user_id === user.id && !readSet.has(n.id)
+						).length;
+						setUnreadCount(count);
 					}
 				} catch (error) {
 					console.error('Error loading read notifications:', error);
 				}
 			}
 			reloadReadNotifications();
-		}, [])
+		}, [allNotifications, user?.id])
 	);
 
-	// Calculate unread count
-	const unreadCount = useMemo(() => {
-		if (!user?.id) return 0;
-		return allNotifications.filter(n => 
+	// Calculate unread count and force update on notification arrival
+	const [unreadCount, setUnreadCount] = useState(0);
+	useEffect(() => {
+		if (!user?.id) {
+			setUnreadCount(0);
+			return;
+		}
+		const count = allNotifications.filter(n => 
 			n.user_id === user.id && !readNotifications.has(n.id)
 		).length;
-	}, [allNotifications, user?.id, readNotifications]);
+		setUnreadCount(count);
+	}, [allNotifications.length, user?.id, readNotifications]);
+
+	// Listen for incoming notifications and update badge immediately
+	useEffect(() => {
+		const subscription = Notifications.addNotificationReceivedListener(notification => {
+			console.log('Notification received:', notification);
+			// Force recalculation of unread count
+			if (user?.id) {
+				const count = allNotifications.filter(n => 
+					n.user_id === user.id && !readNotifications.has(n.id)
+				).length;
+				setUnreadCount(count + 1); // Add 1 for the new notification
+			}
+		});
+
+		return () => subscription.remove();
+	}, [user?.id, allNotifications, readNotifications]);
 
 	// Get officer and assigned report id
 	const { officers, loading: officersLoading } = useOfficers();
@@ -90,6 +119,30 @@ function IndexContent() {
 			setAssignedReport(data || null);
 		} finally {
 			setIsFetching(false);
+		}
+	}
+
+	async function handleRefresh() {
+		// Reload assigned report
+		await loadAssignedReport();
+		
+		// Reload read notifications to update the badge
+		try {
+			const stored = await AsyncStorage.getItem('readNotifications');
+			if (stored) {
+				const readSet = new Set<string>(JSON.parse(stored));
+				setReadNotifications(readSet);
+				
+				// Recalculate unread count with fresh data
+				if (user?.id) {
+					const count = allNotifications.filter(n => 
+						n.user_id === user.id && !readSet.has(n.id)
+					).length;
+					setUnreadCount(count);
+				}
+			}
+		} catch (error) {
+			console.error('Error reloading read notifications:', error);
 		}
 	}
 
@@ -163,7 +216,7 @@ function IndexContent() {
 					data={listData}
 					keyExtractor={(item: any) => item.id.toString()}
 					contentContainerStyle={styles.listContent}
-					onRefresh={async () => { await loadAssignedReport(); }}
+					onRefresh={handleRefresh}
 					refreshing={isFetching}
 					renderItem={({ item }: { item: any }) => (
 						<TouchableOpacity
