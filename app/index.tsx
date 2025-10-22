@@ -24,6 +24,7 @@ function IndexContent() {
 	// Get notifications
 	const { notifications: allNotifications } = useNotifications();
 	const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+	const lastNotificationTimeRef = useRef(Date.now());
 
 	// Load read notifications from AsyncStorage
 	useEffect(() => {
@@ -54,7 +55,10 @@ function IndexContent() {
 						const count = allNotifications.filter(n => 
 							n.user_id === user.id && !readSet.has(n.id)
 						).length;
+						// Update the count and reset the protection timer
 						setUnreadCount(count);
+						lastCountRef.current = count;
+						lastNotificationTimeRef.current = Date.now();
 					}
 				} catch (error) {
 					console.error('Error loading read notifications:', error);
@@ -66,32 +70,53 @@ function IndexContent() {
 
 	// Calculate unread count and force update on notification arrival
 	const [unreadCount, setUnreadCount] = useState(0);
+	const [lastNotificationTime, setLastNotificationTime] = useState(Date.now());
+	const [forceUpdate, setForceUpdate] = useState(0);
+	const [notificationIds, setNotificationIds] = useState<string[]>([]);
+	const lastCountRef = useRef(0);
+	
 	useEffect(() => {
 		if (!user?.id) {
 			setUnreadCount(0);
+			lastCountRef.current = 0;
 			return;
 		}
 		const count = allNotifications.filter(n => 
 			n.user_id === user.id && !readNotifications.has(n.id)
 		).length;
-		setUnreadCount(count);
-	}, [allNotifications.length, user?.id, readNotifications]);
+		
+		// Only update if count increased or if it's a legitimate decrease
+		// This prevents the optimistic count from being overridden too quickly
+		if (count >= lastCountRef.current || Date.now() - lastNotificationTimeRef.current > 2000) {
+			setUnreadCount(count);
+			lastCountRef.current = count;
+		}
+		
+		// Track notification IDs to detect new ones
+		const currentIds = allNotifications.map(n => n.id);
+		setNotificationIds(currentIds);
+	}, [allNotifications, allNotifications.length, user?.id, readNotifications, lastNotificationTime, forceUpdate]);
 
 	// Listen for incoming notifications and update badge immediately
 	useEffect(() => {
 		const subscription = Notifications.addNotificationReceivedListener(notification => {
 			console.log('Notification received:', notification);
-			// Force recalculation of unread count
-			if (user?.id) {
-				const count = allNotifications.filter(n => 
-					n.user_id === user.id && !readNotifications.has(n.id)
-				).length;
-				setUnreadCount(count + 1); // Add 1 for the new notification
-			}
+			// Update timestamp ref
+			lastNotificationTimeRef.current = Date.now();
+			// Increment count optimistically for instant feedback
+			setUnreadCount(prev => {
+				const newCount = prev + 1;
+				lastCountRef.current = newCount;
+				return newCount;
+			});
+			// Trigger recalculation
+			setLastNotificationTime(Date.now());
 		});
 
 		return () => subscription.remove();
-	}, [user?.id, allNotifications, readNotifications]);
+	}, []);
+
+
 
 	// Get officer and assigned report id
 	const { officers, loading: officersLoading } = useOfficers();
@@ -199,7 +224,24 @@ function IndexContent() {
 				leftIcon="person-circle-outline"
 				onLeftPress={openMenu}
 				rightIcon="notifications-outline"
-				onRightPress={() => router.push('/notifications')}
+				onRightPress={async () => {
+					// Mark all current notifications as read in AsyncStorage
+					if (user?.id) {
+						const currentNotifications = allNotifications
+							.filter(n => n.user_id === user.id)
+							.map(n => n.id);
+						
+						try {
+							await AsyncStorage.setItem('readNotifications', JSON.stringify(currentNotifications));
+							setReadNotifications(new Set(currentNotifications));
+							setUnreadCount(0);
+							lastCountRef.current = 0;
+						} catch (error) {
+							console.error('Error marking notifications as read:', error);
+						}
+					}
+					router.push('/notifications');
+				}}
 				showLeftIcon={true}
 				showRightIcon={true}
 				showNotificationBadge={unreadCount > 0}

@@ -96,7 +96,7 @@ function SwipeableNotification({
             activeOpacity={0.8}
           >
             <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text style={styles.deleteButtonText}>Remove</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -186,17 +186,64 @@ function NotificationsContent() {
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+  const [tappedNotifications, setTappedNotifications] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const readNotificationsLoaded = useRef(false);
+  const tappedNotificationsLoaded = useRef(false);
+
+  // Load tapped notifications from AsyncStorage (for blue dot display)
+  useEffect(() => {
+    async function loadTappedNotifications() {
+      try {
+        const stored = await AsyncStorage.getItem('tappedNotifications');
+        const parsed = stored ? JSON.parse(stored) : [];
+        setTappedNotifications(new Set(parsed));
+      } catch (error) {
+        console.error('Error loading tapped notifications:', error);
+      } finally {
+        tappedNotificationsLoaded.current = true;
+      }
+    }
+    loadTappedNotifications();
+  }, []);
+
+  // Reload tapped notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      async function reloadTappedNotifications() {
+        try {
+          const stored = await AsyncStorage.getItem('tappedNotifications');
+          const parsed = stored ? JSON.parse(stored) : [];
+          setTappedNotifications(new Set(parsed));
+        } catch (error) {
+          console.error('Error reloading tapped notifications:', error);
+        }
+      }
+      reloadTappedNotifications();
+    }, [])
+  );
+
+  // Save tapped notifications to AsyncStorage whenever it changes
+  useEffect(() => {
+    if (!tappedNotificationsLoaded.current) {
+      return;
+    }
+    AsyncStorage.setItem('tappedNotifications', JSON.stringify(Array.from(tappedNotifications))).catch(error => {
+      console.error('Error saving tapped notifications:', error);
+    });
+  }, [tappedNotifications]);
 
   // Load read notifications from AsyncStorage
   useEffect(() => {
     async function loadReadNotifications() {
       try {
         const stored = await AsyncStorage.getItem('readNotifications');
-        if (stored) {
-          setReadNotifications(new Set(JSON.parse(stored)));
-        }
+        const parsed = stored ? JSON.parse(stored) : [];
+        setReadNotifications(new Set(parsed));
       } catch (error) {
         console.error('Error loading read notifications:', error);
+      } finally {
+        readNotificationsLoaded.current = true;
       }
     }
     loadReadNotifications();
@@ -208,9 +255,8 @@ function NotificationsContent() {
       async function reloadReadNotifications() {
         try {
           const stored = await AsyncStorage.getItem('readNotifications');
-          if (stored) {
-            setReadNotifications(new Set(JSON.parse(stored)));
-          }
+          const parsed = stored ? JSON.parse(stored) : [];
+          setReadNotifications(new Set(parsed));
         } catch (error) {
           console.error('Error reloading read notifications:', error);
         }
@@ -221,16 +267,12 @@ function NotificationsContent() {
 
   // Save read notifications to AsyncStorage whenever it changes
   useEffect(() => {
-    async function saveReadNotifications() {
-      try {
-        await AsyncStorage.setItem('readNotifications', JSON.stringify(Array.from(readNotifications)));
-      } catch (error) {
-        console.error('Error saving read notifications:', error);
-      }
+    if (!readNotificationsLoaded.current) {
+      return;
     }
-    if (readNotifications.size > 0) {
-      saveReadNotifications();
-    }
+    AsyncStorage.setItem('readNotifications', JSON.stringify(Array.from(readNotifications))).catch(error => {
+      console.error('Error saving read notifications:', error);
+    });
   }, [readNotifications]);
 
   // Filter notifications for the current user
@@ -240,10 +282,11 @@ function NotificationsContent() {
       .filter(notification => notification.user_id === user.id)
       .map(n => ({
         ...n,
-        is_read: readNotifications.has(n.id),
+        // Use tappedNotifications to show/hide blue dot
+        is_read: tappedNotifications.has(n.id),
       }))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [allNotifications, user?.id, readNotifications]);
+  }, [allNotifications, user?.id, tappedNotifications]);
 
   // Helper function to format timestamp
   const formatTimestamp = (created_at: string) => {
@@ -305,32 +348,46 @@ function NotificationsContent() {
     await deleteNotification(id);
   }, [deleteNotification]);
 
-  const handleNotificationPress = useCallback((item: typeof notifications[0]) => {
-    if (selectionMode) {
-      // Toggle selection
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(item.id)) {
-          newSet.delete(item.id);
-        } else {
-          newSet.add(item.id);
-        }
-        return newSet;
-      });
-    } else {
-      // Don't auto-mark as read - only navigate to report
-      // User can manually mark as read if they want
-      
-      // Navigate to report
-      const reportIdMatch = item.body.match(/#(\d+)/) || item.title?.match(/#(\d+)/);
-      if (reportIdMatch) {
-        const reportId = reportIdMatch[1];
-        router.push(`/report/${reportId}` as any);
-      }
-    }
-  }, [router, selectionMode]);
-
-  const handleLongPress = useCallback((item: typeof notifications[0]) => {
+	const handleNotificationPress = useCallback(async (item: typeof notifications[0]) => {
+		if (selectionMode) {
+			// Toggle selection
+			setSelectedIds(prev => {
+				const newSet = new Set(prev);
+				if (newSet.has(item.id)) {
+					newSet.delete(item.id);
+				} else {
+					newSet.add(item.id);
+				}
+				return newSet;
+			});
+		} else {
+			// Mark as tapped (remove blue dot) when tapping notification
+			if (!item.is_read) {
+				setTappedNotifications(prev => {
+					const newSet = new Set(prev);
+					newSet.add(item.id);
+					return newSet;
+				});
+				
+				// Save immediately to AsyncStorage
+				try {
+					const stored = await AsyncStorage.getItem('tappedNotifications');
+					const currentSet = stored ? new Set(JSON.parse(stored)) : new Set();
+					currentSet.add(item.id);
+					await AsyncStorage.setItem('tappedNotifications', JSON.stringify(Array.from(currentSet)));
+				} catch (error) {
+					console.error('Error saving tapped notification:', error);
+				}
+			}
+			
+			// Navigate to report
+			const reportIdMatch = item.body.match(/#(\d+)/) || item.title?.match(/#(\d+)/);
+			if (reportIdMatch) {
+				const reportId = reportIdMatch[1];
+				router.push(`/report/${reportId}` as any);
+			}
+		}
+	}, [router, selectionMode]);  const handleLongPress = useCallback((item: typeof notifications[0]) => {
     setSelectedNotification(item);
     setShowOptionsModal(true);
   }, []);
@@ -367,19 +424,34 @@ function NotificationsContent() {
     setSelectionMode(false);
   }, [selectedIds, deleteNotification]);
 
-  const handleMarkSelectedAsRead = useCallback(() => {
-    setReadNotifications(prev => {
-      const newSet = new Set(prev);
-      selectedIds.forEach(id => newSet.add(id));
-      return newSet;
-    });
-    setSelectedIds(new Set());
-    setSelectionMode(false);
-  }, [selectedIds]);
+  const handleSelectAll = useCallback(() => {
+    // If all are selected, unselect all. Otherwise, select all.
+    if (selectedIds.size === notifications.length) {
+      setSelectedIds(new Set());
+    } else {
+      const allIds = new Set(notifications.map(n => n.id));
+      setSelectedIds(allIds);
+    }
+  }, [notifications, selectedIds.size]);
 
   const handleCancelSelection = useCallback(() => {
     setSelectedIds(new Set());
     setSelectionMode(false);
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Reload tapped notifications from AsyncStorage
+      const stored = await AsyncStorage.getItem('tappedNotifications');
+      if (stored) {
+        setTappedNotifications(new Set(JSON.parse(stored)));
+      }
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
 
   const renderNotification = ({ item }: { item: typeof notifications[0] }) => {
@@ -443,6 +515,8 @@ function NotificationsContent() {
             keyExtractor={(item) => item.id}
             renderItem={renderNotification}
             contentContainerStyle={styles.listContent}
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Ionicons name="notifications-off-outline" size={64} color={colors.border} />
@@ -457,7 +531,7 @@ function NotificationsContent() {
           />
 
           {/* Selection Mode Action Bar */}
-          {selectionMode && selectedIds.size > 0 && (
+          {selectionMode && (
             <View style={[styles.actionBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
               <Text style={[styles.actionBarText, { color: colors.text }]}>
                 {selectedIds.size} selected
@@ -465,18 +539,20 @@ function NotificationsContent() {
               <View style={styles.actionBarButtons}>
                 <TouchableOpacity
                   style={[styles.actionBarButton, { backgroundColor: colors.primary }]}
-                  onPress={handleMarkSelectedAsRead}
+                  onPress={handleSelectAll}
                 >
-                  <Ionicons name="checkmark-done" size={20} color="#fff" />
-                  <Text style={styles.actionBarButtonText}>Mark Read</Text>
+                  <Ionicons name={selectedIds.size === notifications.length ? "close-circle" : "checkmark-circle"} size={20} color="#fff" />
+                  <Text style={styles.actionBarButtonText}>{selectedIds.size === notifications.length ? "Unselect All" : "Select All"}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBarButton, { backgroundColor: colors.error }]}
-                  onPress={handleDeleteSelected}
-                >
-                  <Ionicons name="trash" size={20} color="#fff" />
-                  <Text style={styles.actionBarButtonText}>Delete</Text>
-                </TouchableOpacity>
+                {selectedIds.size > 0 && (
+                  <TouchableOpacity
+                    style={[styles.actionBarButton, { backgroundColor: colors.error }]}
+                    onPress={handleDeleteSelected}
+                  >
+                    <Ionicons name="trash" size={20} color="#fff" />
+                    <Text style={styles.actionBarButtonText}>Remove</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}
@@ -501,22 +577,12 @@ function NotificationsContent() {
             </Text>
             
             <TouchableOpacity
-              style={[styles.modalOption, { borderBottomColor: colors.border }]}
-              onPress={handleMarkAsRead}
-            >
-              <Ionicons name="checkmark-done-outline" size={24} color={colors.primary} />
-              <Text style={[styles.modalOptionText, { color: colors.text }]}>
-                {selectedNotification?.is_read ? 'Mark as Unread' : 'Mark as Read'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={styles.modalOption}
               onPress={handleDeleteSingle}
             >
               <Ionicons name="trash-outline" size={24} color={colors.error} />
               <Text style={[styles.modalOptionText, { color: colors.error }]}>
-                Delete
+                Remove
               </Text>
             </TouchableOpacity>
 
