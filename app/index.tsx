@@ -41,33 +41,6 @@ function IndexContent() {
 		loadReadNotifications();
 	}, []);
 
-	// Reload read notifications when screen comes into focus
-	useFocusEffect(
-		useCallback(() => {
-			async function reloadReadNotifications() {
-				try {
-					const stored = await AsyncStorage.getItem('readNotifications');
-					const readSet = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
-					setReadNotifications(readSet);
-					
-					// Recalculate unread count after reloading
-					if (user?.id) {
-						const count = allNotifications.filter(n => 
-							n.user_id === user.id && !readSet.has(n.id)
-						).length;
-						// Update the count and reset the protection timer
-						setUnreadCount(count);
-						lastCountRef.current = count;
-						lastNotificationTimeRef.current = Date.now();
-					}
-				} catch (error) {
-					console.error('Error loading read notifications:', error);
-				}
-			}
-			reloadReadNotifications();
-		}, [allNotifications, user?.id])
-	);
-
 	// Calculate unread count and force update on notification arrival
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [lastNotificationTime, setLastNotificationTime] = useState(Date.now());
@@ -124,7 +97,7 @@ function IndexContent() {
 	const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
 
 	// Fetch only the assigned report using dispatch-lib
-	const { getReportInfo } = useReports();
+	const { getReportInfo, reports } = useReports();
 	const [isFetching, setIsFetching] = useState(true);
 	const [assignedReport, setAssignedReport] = useState<any | null>(null);
 	
@@ -141,11 +114,52 @@ function IndexContent() {
 			if (error) {
 				console.error('Error fetching assigned report:', error);
 			}
-			setAssignedReport(data || null);
+			// Only show the report if it's not resolved
+			if (data && data.status === 'resolved') {
+				setAssignedReport(null);
+			} else {
+				setAssignedReport(data || null);
+			}
 		} finally {
 			setIsFetching(false);
 		}
 	}
+
+	// Reload read notifications and assigned report when screen comes into focus
+	useFocusEffect(
+		useCallback(() => {
+			async function reloadData() {
+				try {
+					const stored = await AsyncStorage.getItem('readNotifications');
+					const readSet = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+					setReadNotifications(readSet);
+					
+					// Force recalculation with the latest allNotifications data
+					// The useNotifications hook should automatically update when the screen refocuses
+					if (user?.id) {
+						const count = allNotifications.filter(n => 
+							n.user_id === user.id && !readSet.has(n.id)
+						).length;
+						// Force update the count immediately
+						setUnreadCount(count);
+						lastCountRef.current = count;
+						lastNotificationTimeRef.current = Date.now();
+						// Trigger a re-render to ensure the badge updates
+						setForceUpdate(prev => prev + 1);
+					}
+				} catch (error) {
+					console.error('Error loading read notifications:', error);
+				}
+				
+				// Reload assigned report when screen comes into focus
+				if (!officersLoading) {
+					loadAssignedReport();
+				}
+			}
+			reloadData();
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [user?.id, officersLoading, assignedReportId, allNotifications.length])
+	);
 
 	async function handleRefresh() {
 		// Reload assigned report
@@ -175,12 +189,12 @@ function IndexContent() {
 	
 
 	useEffect(() => {
-		// Load when officer data ready or assignedReportId changes
+		// Load when officer data ready, assignedReportId changes, or reports update
 		if (!officersLoading) {
 			loadAssignedReport();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [officersLoading, assignedReportId]);
+	}, [officersLoading, assignedReportId, reports]);
 
 	
 

@@ -1,95 +1,57 @@
+import { AuthGuard } from '@/components/auth-guard';
 import { NavBar } from '@/components/nav-bar';
+import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useReports } from 'dispatch-lib';
 import { useRouter } from 'expo-router';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Mock data for resolved reports
-const RESOLVED_REPORTS = [
-	{
-		id: 5,
-		incident_title: 'Noise Complaint - Residential',
-		incident_date: '2024-01-10',
-		incident_time: '23:15',
-		street_address: 'Aguinaldo Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Late night party noise disturbance',
-		status: 'Resolved',
-		resolved_date: '2024-01-11',
-		resolution_notes: 'Warning issued to property owner. Noise stopped immediately.',
-	},
-	{
-		id: 6,
-		incident_title: 'Lost Property Report',
-		incident_date: '2024-01-09',
-		incident_time: '16:45',
-		street_address: 'Bonifacio Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Missing wallet reported at shopping area',
-		status: 'Resolved',
-		resolved_date: '2024-01-10',
-		resolution_notes: 'Wallet recovered and returned to owner. Found by store staff.',
-	},
-	{
-		id: 7,
-		incident_title: 'Vehicle Parking Violation',
-		incident_date: '2024-01-08',
-		incident_time: '09:30',
-		street_address: 'Luna Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Car blocking driveway entrance',
-		status: 'Resolved',
-		resolved_date: '2024-01-08',
-		resolution_notes: 'Vehicle owner contacted and moved car. Citation issued.',
-	},
-	{
-		id: 8,
-		incident_title: 'Public Disturbance',
-		incident_date: '2024-01-07',
-		incident_time: '14:20',
-		street_address: 'Rizal Park',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Group causing disturbance in public park',
-		status: 'Resolved',
-		resolved_date: '2024-01-07',
-		resolution_notes: 'Group dispersed peacefully. No arrests made.',
-	},
-	{
-		id: 9,
-		incident_title: 'Stray Animal Report',
-		incident_date: '2024-01-06',
-		incident_time: '11:00',
-		street_address: 'Pengue-Ruyu Street',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Multiple stray dogs in residential area',
-		status: 'Resolved',
-		resolved_date: '2024-01-07',
-		resolution_notes: 'Animal control contacted. Dogs safely captured and relocated.',
-	},
-	{
-		id: 10,
-		incident_title: 'Traffic Light Malfunction',
-		incident_date: '2024-01-05',
-		incident_time: '07:45',
-		street_address: 'Bonifacio-Luna Intersection',
-		city: 'Tuguegarao City',
-		province: 'Cagayan',
-		brief_description: 'Traffic signal not working properly',
-		status: 'Resolved',
-		resolved_date: '2024-01-06',
-		resolution_notes: 'Public works department notified. Signal repaired within 24 hours.',
-	},
-];
-
-export default function ResolvedReportsScreen() {
+function ResolvedReportsContent() {
 	const router = useRouter();
 	const { colors } = useTheme();
+	const { user } = useOfficerAuth();
+	const { reports } = useReports();
+	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [loading, setLoading] = useState(true);
+
+	// Filter reports that are resolved and were assigned to this officer
+	const resolvedReports = useMemo(() => {
+		if (!user?.id) return [];
+		const filtered = reports
+			.filter(report => {
+				// Show resolved reports only
+				if (report.status !== 'resolved') return false;
+				
+				// Check if this report has officer_assigned_date (meaning it was assigned to an officer)
+				// This is the best indicator that an officer worked on this report
+				return (report as any).officer_assigned_date != null;
+			})
+			.sort((a, b) => {
+				// Sort by resolved_at if available, otherwise by created date
+				const dateA = new Date((a as any).resolved_at || a.created_at).getTime();
+				const dateB = new Date((b as any).resolved_at || b.created_at).getTime();
+				return dateB - dateA; // Most recent first
+			});
+		
+		// Set loading to false once we have data
+		if (filtered.length > 0 || reports.length > 0) {
+			setLoading(false);
+		}
+		
+		return filtered;
+	}, [reports, user?.id]);
+
+	async function handleRefresh() {
+		setIsRefreshing(true);
+		// The useReports hook should automatically refetch
+		// Add a small delay to show the refresh animation
+		setTimeout(() => {
+			setIsRefreshing(false);
+		}, 500);
+	}
 
 	function handleReportPress(reportId: number) {
 		router.push(`/report/${reportId}` as any);
@@ -110,17 +72,25 @@ export default function ResolvedReportsScreen() {
 			<View style={[styles.statsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
 				<View style={styles.statBox}>
 					<Ionicons name="checkmark-circle" size={32} color="#10B981" />
-					<Text style={styles.statNumber}>{RESOLVED_REPORTS.length}</Text>
+					<Text style={styles.statNumber}>{resolvedReports.length}</Text>
 					<Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Resolved</Text>
 				</View>
 			</View>
 
 			{/* Reports List */}
-			<FlatList
-				data={RESOLVED_REPORTS}
-				keyExtractor={(item) => item.id.toString()}
-				contentContainerStyle={styles.listContent}
-				renderItem={({ item }) => (
+			{loading ? (
+				<View style={styles.loadingContainer}>
+					<ActivityIndicator size="large" color={colors.primary} />
+					<Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading resolved reports...</Text>
+				</View>
+			) : (
+				<FlatList
+					data={resolvedReports}
+					keyExtractor={(item) => item.id.toString()}
+					contentContainerStyle={styles.listContent}
+					refreshing={isRefreshing}
+					onRefresh={handleRefresh}
+					renderItem={({ item }) => (
 					<TouchableOpacity
 						style={[styles.reportCard, { backgroundColor: colors.card }]}
 						onPress={() => handleReportPress(item.id)}
@@ -137,31 +107,37 @@ export default function ResolvedReportsScreen() {
 							<View style={styles.detailRow}>
 								<Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
 								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									Reported: {item.incident_date} at {item.incident_time}
+									Reported: {item.incident_date || item.created_at} {item.incident_time ? `at ${item.incident_time}` : ''}
 								</Text>
 							</View>
 							<View style={styles.detailRow}>
 								<Ionicons name="checkmark-done-outline" size={16} color={colors.textSecondary} />
-								<Text style={[styles.detailText, { color: colors.textSecondary }]}>Resolved: {item.resolved_date}</Text>
+								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
+									Resolved: {(item as any).resolved_at ? new Date((item as any).resolved_at).toLocaleDateString() : 'N/A'}
+								</Text>
 							</View>
 							<View style={styles.detailRow}>
 								<Ionicons name="location-outline" size={16} color={colors.textSecondary} />
 								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									{item.street_address}, {item.city}
+									{item.street_address || item.nearby_landmark || 'No location specified'}
 								</Text>
 							</View>
 						</View>
 
-						<Text style={[styles.reportDescription, { color: colors.text }]}>{item.brief_description}</Text>
+						<Text style={[styles.reportDescription, { color: colors.text }]}>
+							{item.what_happened || 'No details provided'}
+						</Text>
 
 						{/* Resolution Notes */}
-						<View style={styles.resolutionCard}>
-							<View style={styles.resolutionHeader}>
-								<Ionicons name="document-text-outline" size={16} color="#059669" />
-								<Text style={styles.resolutionTitle}>Resolution Notes</Text>
+						{(item as any).resolution_notes && (
+							<View style={styles.resolutionCard}>
+								<View style={styles.resolutionHeader}>
+									<Ionicons name="document-text-outline" size={16} color="#059669" />
+									<Text style={styles.resolutionTitle}>Resolution Notes</Text>
+								</View>
+								<Text style={styles.resolutionText}>{(item as any).resolution_notes}</Text>
 							</View>
-							<Text style={styles.resolutionText}>{item.resolution_notes}</Text>
-						</View>
+						)}
 
 						<View style={styles.statusBadge}>
 							<Ionicons name="checkmark-circle" size={14} color="#059669" />
@@ -179,7 +155,16 @@ export default function ResolvedReportsScreen() {
 					</View>
 				}
 			/>
+			)}
 		</SafeAreaView>
+	);
+}
+
+export default function ResolvedReportsScreen() {
+	return (
+		<AuthGuard>
+			<ResolvedReportsContent />
+		</AuthGuard>
 	);
 }
 
@@ -305,5 +290,15 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 		textAlign: 'center',
 		paddingHorizontal: 32,
+	},
+	loadingContainer: {
+		flex: 1,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 64,
+	},
+	loadingText: {
+		fontSize: 16,
+		marginTop: 12,
 	},
 });
