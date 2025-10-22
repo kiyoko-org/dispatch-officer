@@ -3,13 +3,36 @@ import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useOfficers } from 'dispatch-lib';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function ProfileScreenContent() {
   const { colors } = useTheme();
   const { user, signOut } = useOfficerAuth();
+  const [revealedFields, setRevealedFields] = useState<{ [key: string]: boolean }>({
+    email: false,
+    phone: false,
+    officerId: false,
+  });
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Get officer data to check for assigned reports
+  const { officers } = useOfficers();
+  const currentOfficer = useMemo(() => officers.find((o: any) => o.id === user?.id), [officers, user?.id]);
+  const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
+
+  const toggleFieldVisibility = (field: string) => {
+    setRevealedFields(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  async function confirmLogout() {
+    setShowLogoutModal(false);
+    await signOut();
+    router.replace('/login');
+  }
 
   // Get user data from authentication context
   const officerData = {
@@ -29,7 +52,7 @@ function ProfileScreenContent() {
     assigned_area: 'Tuguegarao City Center',
     total_reports: 47,
     resolved_reports: 42,
-    pending_reports: 5,
+    pending_reports: assignedReportId ? 1 : 0, // Synced with assigned report
   };
   
   return (
@@ -83,11 +106,7 @@ function ProfileScreenContent() {
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
             <InfoRow icon="card" label="Badge Number" value={officerData.badge_number} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="briefcase" label="Department" value={officerData.department} colors={colors} />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <InfoRow icon="business" label="Station" value={officerData.station} colors={colors} />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="location" label="Assigned Area" value={officerData.assigned_area} colors={colors} />
           </View>
         </View>
 
@@ -96,9 +115,23 @@ function ProfileScreenContent() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Information</Text>
           
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-            <InfoRow icon="mail" label="Email" value={officerData.email} colors={colors} />
+            <BlurredInfoRow 
+              icon="mail" 
+              label="Email" 
+              value={officerData.email} 
+              colors={colors}
+              isRevealed={revealedFields.email}
+              onToggle={() => toggleFieldVisibility('email')}
+            />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="call" label="Phone Number" value={officerData.phone} colors={colors} />
+            <BlurredInfoRow 
+              icon="call" 
+              label="Phone Number" 
+              value={officerData.phone} 
+              colors={colors}
+              isRevealed={revealedFields.phone}
+              onToggle={() => toggleFieldVisibility('phone')}
+            />
           </View>
         </View>
 
@@ -109,30 +142,66 @@ function ProfileScreenContent() {
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
             <InfoRow icon="calendar" label="Joined PNP" value={officerData.joined_date} colors={colors} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <InfoRow icon="shield-checkmark" label="Officer ID" value={officerData.id} colors={colors} />
+            <BlurredInfoRow 
+              icon="shield-checkmark" 
+              label="Officer ID" 
+              value={officerData.id} 
+              colors={colors}
+              isRevealed={revealedFields.officerId}
+              onToggle={() => toggleFieldVisibility('officerId')}
+            />
           </View>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.section}>
-          <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
-            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Edit Profile</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity 
             style={[styles.actionButton, styles.logoutButton]}
-            onPress={async () => {
-              await signOut();
-              router.replace('/login');
-            }}>
-            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            onPress={() => setShowLogoutModal(true)}>
+            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
             <Text style={[styles.actionButtonText, styles.logoutButtonText]}>Log Out</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="log-out-outline" size={48} color="#DC2626" />
+            </View>
+            
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              Are you sure you want to logout?
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.confirmButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -156,6 +225,44 @@ function InfoRow({ icon, label, value, colors }: { icon: keyof typeof Ionicons.g
         <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
       </View>
     </View>
+  );
+}
+
+function BlurredInfoRow({ 
+  icon, 
+  label, 
+  value, 
+  colors, 
+  isRevealed, 
+  onToggle 
+}: { 
+  icon: keyof typeof Ionicons.glyphMap; 
+  label: string; 
+  value: string; 
+  colors: any;
+  isRevealed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.infoRow} onPress={onToggle} activeOpacity={0.7}>
+      <View style={styles.infoIconContainer}>
+        <Ionicons name={icon} size={20} color={colors.primary} />
+      </View>
+      <View style={styles.infoContent}>
+        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text 
+          style={[
+            styles.infoValue, 
+            { color: colors.text },
+            !isRevealed && styles.blurredText
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {isRevealed ? value : '••••••••••••'}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -281,6 +388,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  blurredValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  blurredText: {
+    letterSpacing: 2,
+  },
+  eyeIcon: {
+    marginLeft: 4,
+    flexShrink: 0,
+  },
   divider: {
     height: 1,
     marginVertical: 16,
@@ -306,10 +426,68 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    borderColor: '#FEE2E2',
-    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+    backgroundColor: '#DC2626',
+    borderWidth: 0,
   },
   logoutButtonText: {
-    color: '#EF4444',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    backgroundColor: '#DC2626',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
