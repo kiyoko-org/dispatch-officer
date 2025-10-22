@@ -22,8 +22,7 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: 'com.anonymous.dispatchofficer',
-  // Use env override if set, otherwise default to the common location
-  googleServicesFile: process.env.GOOGLE_SERVICES_JSON || './android/app/google-services.json',
+      googleServicesFile: './google-services.json',
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY,

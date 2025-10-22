@@ -58,11 +58,8 @@ jobs:
       - name: Install Expo CLI
         run: npm install -g expo-cli eas-cli
 
-      - name: Create android directory structure
-        run: mkdir -p ./android/app
-
       - name: Decode and place google-services.json
-        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > google-services.json
 
       - name: Run prebuild
         run: npx expo prebuild --platform android
