@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { showThemedAlert } from '@/components/ui/themed-alert';
 
 export const useStoragePermission = () => {
   const requestStoragePermission = async (): Promise<boolean> => {
@@ -20,6 +21,40 @@ export const useStoragePermission = () => {
 };
 
 /**
+ * Returns the platform-specific download directory used by this app.
+ */
+export const getDownloadDirectory = (): string => {
+  if (Platform.OS === 'android') {
+    return 'file:///sdcard/Download/';
+  } else if (Platform.OS === 'ios') {
+    // iOS Documents folder (visible in Files app)
+    return `${FileSystem.documentDirectory}Downloads/`;
+  }
+  return `${FileSystem.documentDirectory}Downloads/`;
+};
+
+/**
+ * Builds the target file URI in the Downloads folder for a given filename.
+ */
+export const getDownloadedFileUri = (filename: string): string => {
+  const dir = getDownloadDirectory();
+  return `${dir}${filename}`;
+};
+
+/**
+ * Checks if a file with the given filename already exists in the Downloads folder.
+ */
+export const isFileAlreadyDownloaded = async (filename: string): Promise<boolean> => {
+  try {
+    const fileUri = getDownloadedFileUri(filename);
+    const info = await FileSystem.getInfoAsync(fileUri);
+    return !!info.exists;
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
  * Downloads a file from a signed URL and stores it in the phone's Downloads folder
  * @param signedUrl - The signed URL to download from
  * @param filename - The filename to save as
@@ -27,23 +62,26 @@ export const useStoragePermission = () => {
  */
 export const downloadFile = async (signedUrl: string, filename: string): Promise<boolean> => {
   try {
-    let downloadDir: string;
+    const downloadDir = getDownloadDirectory();
 
-    if (Platform.OS === 'android') {
-      downloadDir = 'file:///sdcard/Download/';
-    } else if (Platform.OS === 'ios') {
-      // iOS Documents folder (visible in Files app)
-      downloadDir = `${FileSystem.documentDirectory}Downloads/`;
-    } else {
-      downloadDir = `${FileSystem.documentDirectory}Downloads/`;
-    }
-    
+    // Ensure the download directory exists (especially important on iOS)
     const dirInfo = await FileSystem.getInfoAsync(downloadDir);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(downloadDir, { intermediates: true });
     }
 
     const filePath = `${downloadDir}${filename}`;
+
+    // Prevent duplicate downloads: if file already exists, inform the user and stop
+    const existing = await FileSystem.getInfoAsync(filePath);
+    if (existing.exists) {
+      showThemedAlert({
+        title: 'Already downloaded',
+        message: `This file is already in your Downloads folder as:\n${filename}`,
+        variant: 'info',
+      });
+      return true;
+    }
 
     const downloadResumable = FileSystem.createDownloadResumable(
       signedUrl,
@@ -58,11 +96,19 @@ export const downloadFile = async (signedUrl: string, filename: string): Promise
     }
 
     console.log('File downloaded to:', result.uri);
-    Alert.alert('Success', `File downloaded: ${filename}`);
+    showThemedAlert({
+      title: 'Download complete',
+      message: `Saved to Downloads: ${filename}`,
+      variant: 'success',
+    });
     return true;
   } catch (error) {
     console.error('Download error:', error);
-    Alert.alert('Download Failed', 'Could not download the file. Please try again.');
+    showThemedAlert({
+      title: 'Download failed',
+      message: 'Could not download the file. Please try again.',
+      variant: 'error',
+    });
     return false;
   }
 };

@@ -19,6 +19,7 @@ interface ImagePreviewModalProps {
   colors: any;
   onDownload?: () => void;
   isDownloading?: boolean;
+  backdropColor?: string;
 }
 
 export function ImagePreviewModal({
@@ -29,6 +30,7 @@ export function ImagePreviewModal({
   colors,
   onDownload,
   isDownloading = false,
+  backdropColor,
 }: ImagePreviewModalProps) {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -41,15 +43,14 @@ export function ImagePreviewModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <SafeAreaView
-        style={[
-          styles.container,
-          {
-            backgroundColor: colors.background,
-          },
-        ]}
-        edges={['top', 'bottom']}
-      >
+      <View style={[styles.overlay, { backgroundColor: backdropColor || 'rgba(0,0,0,0.5)' }]}>
+        <SafeAreaView
+          style={[
+            styles.modalContent,
+            { backgroundColor: 'transparent' },
+          ]}
+          edges={['top', 'bottom']}
+        >
         {/* Header Bar */}
         <View
           style={[
@@ -103,16 +104,22 @@ export function ImagePreviewModal({
             />
           </View>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 0,
+  },
+  modalContent: {
+    flex: 1,
+    width: '100%',
   },
   header: {
     flexDirection: 'row',

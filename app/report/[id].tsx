@@ -4,7 +4,7 @@ import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
 import { downloadAudioToCache } from '@/hooks/use-audio-manager';
-import { downloadFile, useStoragePermission } from '@/hooks/use-storage-permission';
+import { downloadFile, useStoragePermission, isFileAlreadyDownloaded } from '@/hooks/use-storage-permission';
 import { Ionicons } from '@expo/vector-icons';
 import { getDispatchClient, useCategories, useOfficers, useReports } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -142,6 +142,7 @@ export default function ReportDetailsScreen() {
   const [previewImage, setPreviewImage] = useState<{ uri: string; filename: string; path: string } | null>(null);
   const [cachedAudioFiles, setCachedAudioFiles] = useState<{ [key: string]: string }>({});
   const [audioPlayerModal, setAudioPlayerModal] = useState<{ visible: boolean; uri: string; filename: string; path: string } | null>(null);
+  const [downloadedStatus, setDownloadedStatus] = useState<Set<string>>(new Set());
 
 useEffect(() => {
     let mounted = true;
@@ -167,6 +168,7 @@ useEffect(() => {
              const dispatchClient = getDispatchClient();
              const urls: { [key: string]: string } = {};
              const audioCache: { [key: string]: string } = {};
+             const downloadedSet: Set<string> = new Set();
              
              for (const attachment of data.attachments) {
                const attachmentStr = typeof attachment === 'string' 
@@ -185,10 +187,17 @@ useEffect(() => {
                    const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
                    const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(fileExtension);
                    
-                   if (isAudio && mounted) {
-                     const cachedUri = await downloadAudioToCache(signedUrlData.signedUrl, filename);
-                     if (cachedUri) {
-                       audioCache[attachmentStr] = cachedUri;
+                   if (mounted) {
+                     if (isAudio) {
+                       const cachedUri = await downloadAudioToCache(signedUrlData.signedUrl, filename);
+                       if (cachedUri) {
+                         audioCache[attachmentStr] = cachedUri;
+                       }
+                     }
+                     // For all attachments, check if already downloaded to the Downloads folder
+                     const exists = await isFileAlreadyDownloaded(filename);
+                     if (exists) {
+                       downloadedSet.add(attachmentStr);
                      }
                    }
                  }
@@ -200,6 +209,7 @@ useEffect(() => {
              if (mounted) {
                setAttachmentUrls(urls);
                setCachedAudioFiles(audioCache);
+               setDownloadedStatus(downloadedSet);
              }
            }
         }
@@ -287,6 +297,7 @@ useEffect(() => {
       if (success) {
         // Optionally close the preview after successful download
         // setPreviewImage(null);
+        setDownloadedStatus(prev => new Set(prev).add(previewImage.path));
       } else {
         Alert.alert('Error', 'Could not download the image.');
       }
@@ -322,6 +333,8 @@ useEffect(() => {
       const success = await downloadFile(signedUrl, audioPlayerModal.filename);
       if (!success) {
         Alert.alert('Error', 'Could not download the audio.');
+      } else {
+        setDownloadedStatus(prev => new Set(prev).add(audioPlayerModal.path));
       }
     } catch (err) {
       console.error('Error downloading audio:', err);
@@ -360,7 +373,7 @@ useEffect(() => {
       return;
     }
     
-    // For all other files, download to Downloads folder
+  // For all other files, download to Downloads folder
     setDownloadingAttachments(prev => new Set(prev).add(attachmentPath));
     
     try {
@@ -378,6 +391,8 @@ useEffect(() => {
       const success = await downloadFile(signedUrl, filename);
       if (!success) {
         Alert.alert('Error', 'Could not download the file.');
+      } else {
+        setDownloadedStatus(prev => new Set(prev).add(attachmentPath));
       }
     } catch (err) {
       console.error('Error downloading attachment:', err);
@@ -419,6 +434,8 @@ useEffect(() => {
       const success = await downloadFile(signedUrl, filename);
       if (!success) {
         console.log('File download failed or was cancelled');
+      } else {
+        setDownloadedStatus(prev => new Set(prev).add(attachmentPath));
       }
 
     } catch (err) {
@@ -673,6 +690,7 @@ useEffect(() => {
                 const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(fileExtension);
                 const signedUrl = attachmentUrls[attachmentStr];
                 const cachedAudioUri = cachedAudioFiles[attachmentStr];
+                const isDownloaded = downloadedStatus.has(attachmentStr);
                 
                 const getFileIcon = (ext: string) => {
                   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image-outline';
@@ -714,14 +732,16 @@ useEffect(() => {
                         </Text>
                       </View>
                     </TouchableOpacity>
-                    {!isImage && !isAudio && (
+                    {(
                       <TouchableOpacity 
-                        onPress={() => handleAttachmentPress(attachmentStr, filename, isImage, isAudio)}
-                        disabled={downloadingAttachments.has(attachmentStr)}
-                        style={{ opacity: downloadingAttachments.has(attachmentStr) ? 0.5 : 1 }}
+                        onPress={() => handleDownloadAttachment(attachmentStr, filename)}
+                        disabled={downloadingAttachments.has(attachmentStr) || isDownloaded}
+                        style={{ opacity: (downloadingAttachments.has(attachmentStr) || isDownloaded) ? 0.5 : 1 }}
                       >
                         {downloadingAttachments.has(attachmentStr) ? (
                           <ActivityIndicator size="small" color={colors.primary} />
+                        ) : isDownloaded ? (
+                          <Ionicons name="checkmark-done-outline" size={20} color={colors.primary} />
                         ) : (
                           <Ionicons name="download-outline" size={20} color={colors.primary} />
                         )}
@@ -757,6 +777,7 @@ useEffect(() => {
           onDownload={handleDownloadAudioFromModal}
           isDownloading={downloadingAttachments.has(audioPlayerModal.path)}
           colors={colors}
+          backdropColor={activeTheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.35)'}
         />
       )}
 
@@ -784,6 +805,7 @@ useEffect(() => {
           onDownload={handleDownloadImageFromPreview}
           isDownloading={downloadingAttachments.has(previewImage.path)}
           colors={colors}
+          backdropColor={activeTheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.35)'}
         />
       )}
     </SafeAreaView>

@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { AuthProvider } from '@/contexts/auth-context';
 import { ThemeProvider, useTheme } from '@/contexts/theme-context';
+import { ThemedAlertHost } from '@/components/ui/themed-alert';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -26,6 +27,7 @@ function RootLayoutNav() {
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.statusBar} />
+      <ThemedAlertHost />
     </NavigationThemeProvider>
   );
 }

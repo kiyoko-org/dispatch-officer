@@ -18,6 +18,7 @@ interface AudioPlayerModalProps {
   onDownload?: () => void;
   isDownloading?: boolean;
   colors: any;
+  backdropColor?: string;
 }
 
 export function AudioPlayerModal({
@@ -28,6 +29,7 @@ export function AudioPlayerModal({
   onDownload,
   isDownloading = false,
   colors,
+  backdropColor,
 }: AudioPlayerModalProps) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -156,7 +158,7 @@ export function AudioPlayerModal({
       transparent
       onRequestClose={onClose}
     >
-      <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+      <View style={[styles.overlay, { backgroundColor: backdropColor || 'rgba(0, 0, 0, 0.5)' }]}>
         <View
           style={[
             styles.playerContainer,
