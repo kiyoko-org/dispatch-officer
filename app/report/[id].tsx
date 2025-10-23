@@ -1,7 +1,9 @@
+import { AudioPlayerModal } from '@/components/audio-player-modal';
 import { ImagePreviewModal } from '@/components/image-preview-modal';
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
+import { downloadAudioToCache } from '@/hooks/use-audio-manager';
 import { downloadFile, useStoragePermission } from '@/hooks/use-storage-permission';
 import { Ionicons } from '@expo/vector-icons';
 import { getDispatchClient, useCategories, useOfficers, useReports } from 'dispatch-lib';
@@ -138,6 +140,8 @@ export default function ReportDetailsScreen() {
   const [attachmentUrls, setAttachmentUrls] = useState<{ [key: string]: string }>({});
   const [downloadingAttachments, setDownloadingAttachments] = useState<Set<string>>(new Set());
   const [previewImage, setPreviewImage] = useState<{ uri: string; filename: string; path: string } | null>(null);
+  const [cachedAudioFiles, setCachedAudioFiles] = useState<{ [key: string]: string }>({});
+  const [audioPlayerModal, setAudioPlayerModal] = useState<{ visible: boolean; uri: string; filename: string; path: string } | null>(null);
 
 useEffect(() => {
     let mounted = true;
@@ -162,6 +166,7 @@ useEffect(() => {
            if (data?.attachments && data.attachments.length > 0) {
              const dispatchClient = getDispatchClient();
              const urls: { [key: string]: string } = {};
+             const audioCache: { [key: string]: string } = {};
              
              for (const attachment of data.attachments) {
                const attachmentStr = typeof attachment === 'string' 
@@ -174,6 +179,18 @@ useEffect(() => {
                    .createSignedUrl(attachmentStr, 3600);
                  if (signedUrlData?.signedUrl) {
                    urls[attachmentStr] = signedUrlData.signedUrl;
+                   
+                   // Auto-download audio files to cache
+                   const filename = attachmentStr.split('/').pop() || 'audio';
+                   const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
+                   const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(fileExtension);
+                   
+                   if (isAudio && mounted) {
+                     const cachedUri = await downloadAudioToCache(signedUrlData.signedUrl, filename);
+                     if (cachedUri) {
+                       audioCache[attachmentStr] = cachedUri;
+                     }
+                   }
                  }
                } catch (err) {
                  console.error('Failed to create signed URL for:', attachmentStr, err);
@@ -182,6 +199,7 @@ useEffect(() => {
              
              if (mounted) {
                setAttachmentUrls(urls);
+               setCachedAudioFiles(audioCache);
              }
            }
         }
@@ -284,8 +302,52 @@ useEffect(() => {
     }
   }
 
-  async function handleAttachmentPress(attachmentPath: string, filename: string, isImage: boolean) {
+  async function handleDownloadAudioFromModal() {
+    if (!audioPlayerModal) return;
+    
+    setDownloadingAttachments(prev => new Set(prev).add(audioPlayerModal.path));
+    
+    try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission && Platform.OS !== 'web') {
+        return;
+      }
+
+      const signedUrl = attachmentUrls[audioPlayerModal.path];
+      if (!signedUrl) {
+        Alert.alert('Error', 'Could not find signed URL for this audio.');
+        return;
+      }
+
+      const success = await downloadFile(signedUrl, audioPlayerModal.filename);
+      if (!success) {
+        Alert.alert('Error', 'Could not download the audio.');
+      }
+    } catch (err) {
+      console.error('Error downloading audio:', err);
+      Alert.alert('Error', 'Could not download the audio.');
+    } finally {
+      setDownloadingAttachments(prev => {
+        const next = new Set(prev);
+        next.delete(audioPlayerModal.path);
+        return next;
+      });
+    }
+  }
+
+  async function handleAttachmentPress(attachmentPath: string, filename: string, isImage: boolean, isAudio: boolean) {
     const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
+    
+    // For audio files, open the player modal
+    if (isAudio) {
+      const cachedUri = cachedAudioFiles[attachmentPath];
+      if (cachedUri) {
+        setAudioPlayerModal({ visible: true, uri: cachedUri, filename, path: attachmentPath });
+      } else {
+        Alert.alert('Error', 'Could not load audio file.');
+      }
+      return;
+    }
     
     // For images, show preview instead of downloading
     if (isImage) {
@@ -608,29 +670,32 @@ useEffect(() => {
                 const filename = attachmentStr.split('/').pop() || `Attachment ${index + 1}`;
                 const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
                 const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension);
+                const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(fileExtension);
                 const signedUrl = attachmentUrls[attachmentStr];
+                const cachedAudioUri = cachedAudioFiles[attachmentStr];
                 
                 const getFileIcon = (ext: string) => {
                   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image-outline';
                   if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'videocam-outline';
-                  if (['mp3', 'wav', 'm4a', 'aac'].includes(ext)) return 'musical-notes-outline';
+                  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(ext)) return 'musical-notes-outline';
                   if (['pdf'].includes(ext)) return 'document-text-outline';
                   return 'document-outline';
                 };
                 const getFileType = (ext: string) => {
                   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'Image';
                   if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return 'Video';
-                  if (['mp3', 'wav', 'm4a', 'aac'].includes(ext)) return 'Audio';
+                  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(ext)) return 'Audio';
                   if (['pdf'].includes(ext)) return 'PDF';
                   return ext.toUpperCase() || 'File';
                 };
                 
+                // Render audio as attachment list item (not inline player)
                 return (
                   <View key={index} style={[styles.attachmentItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <TouchableOpacity
-                      onPress={() => handleAttachmentPress(attachmentStr, filename, isImage)}
+                      onPress={() => handleAttachmentPress(attachmentStr, filename, isImage, isAudio)}
                       style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                      disabled={isImage ? downloadingAttachments.has(attachmentStr) : downloadingAttachments.has(attachmentStr)}
+                      disabled={downloadingAttachments.has(attachmentStr)}
                     >
                       {isImage && signedUrl ? (
                         <Image
@@ -649,17 +714,19 @@ useEffect(() => {
                         </Text>
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleAttachmentPress(attachmentStr, filename, isImage)}
-                      disabled={downloadingAttachments.has(attachmentStr)}
-                      style={{ opacity: downloadingAttachments.has(attachmentStr) ? 0.5 : 1 }}
-                    >
-                      {downloadingAttachments.has(attachmentStr) ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Ionicons name={isImage ? 'eye-outline' : 'download-outline'} size={20} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
+                    {!isImage && !isAudio && (
+                      <TouchableOpacity 
+                        onPress={() => handleAttachmentPress(attachmentStr, filename, isImage, isAudio)}
+                        disabled={downloadingAttachments.has(attachmentStr)}
+                        style={{ opacity: downloadingAttachments.has(attachmentStr) ? 0.5 : 1 }}
+                      >
+                        {downloadingAttachments.has(attachmentStr) ? (
+                          <ActivityIndicator size="small" color={colors.primary} />
+                        ) : (
+                          <Ionicons name="download-outline" size={20} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               })}
@@ -679,6 +746,19 @@ useEffect(() => {
 
         
       </ScrollView>
+
+      {/* Audio Player Modal */}
+      {audioPlayerModal && (
+        <AudioPlayerModal
+          visible={audioPlayerModal.visible}
+          uri={audioPlayerModal.uri}
+          filename={audioPlayerModal.filename}
+          onClose={() => setAudioPlayerModal(null)}
+          onDownload={handleDownloadAudioFromModal}
+          isDownloading={downloadingAttachments.has(audioPlayerModal.path)}
+          colors={colors}
+        />
+      )}
 
       {/* Location Map Modal */}
       {(latitude != null && longitude != null) && (
