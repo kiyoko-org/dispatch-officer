@@ -4,7 +4,7 @@ import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNotifications } from 'dispatch-lib';
+import { getDispatchClient, useNotifications } from 'dispatch-lib';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Modal, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -189,6 +189,8 @@ function NotificationsContent() {
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
   const [tappedNotifications, setTappedNotifications] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [resolvedInfo, setResolvedInfo] = useState<{ visible: boolean; reportId?: string; resolvedAt?: string }>({ visible: false });
+  const [notAssignedInfo, setNotAssignedInfo] = useState<{ visible: boolean; reportId?: string }>({ visible: false });
   const readNotificationsLoaded = useRef(false);
   const tappedNotificationsLoaded = useRef(false);
 
@@ -349,7 +351,7 @@ function NotificationsContent() {
     await deleteNotification(id);
   }, [deleteNotification]);
 
-	const handleNotificationPress = useCallback(async (item: typeof notifications[0]) => {
+  const handleNotificationPress = useCallback(async (item: typeof notifications[0]) => {
 		if (selectionMode) {
 			// Toggle selection
 			setSelectedIds(prev => {
@@ -381,14 +383,45 @@ function NotificationsContent() {
 				}
 			}
 			
-			// Navigate to report
+      // Navigate to report unless it's already resolved or assigned to another officer
 			const reportIdMatch = item.body.match(/#(\d+)/) || item.title?.match(/#(\d+)/);
 			if (reportIdMatch) {
-				const reportId = reportIdMatch[1];
-				router.push(`/report/${reportId}` as any);
+        const reportId = reportIdMatch[1];
+        try {
+          const client = getDispatchClient();
+          const { data, error } = await client.supabaseClient
+            .from('reports')
+            .select('id, status, resolved_at')
+            .eq('id', Number(reportId))
+            .single();
+
+          if (!error && data && data.status === 'resolved') {
+            setResolvedInfo({ visible: true, reportId, resolvedAt: data.resolved_at });
+            return;
+          }
+
+          // Check current officer assignment: if this report is not assigned to me, show notice
+          if (user?.id) {
+            const { data: officerRow, error: officerErr } = await client.supabaseClient
+              .from('officers')
+              .select('assigned_report_id')
+              .eq('id', user.id)
+              .single();
+            if (!officerErr) {
+              const assignedId = (officerRow as any)?.assigned_report_id ?? null;
+              if (Number(reportId) !== Number(assignedId)) {
+                setNotAssignedInfo({ visible: true, reportId });
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error checking report status:', e);
+        }
+        router.push(`/report/${reportId}` as any);
 			}
 		}
-	}, [router, selectionMode]);  const handleLongPress = useCallback((item: typeof notifications[0]) => {
+  }, [router, selectionMode]);  const handleLongPress = useCallback((item: typeof notifications[0]) => {
     setSelectedNotification(item);
     setShowOptionsModal(true);
   }, []);
@@ -594,6 +627,73 @@ function NotificationsContent() {
               <Text style={[styles.modalCancelText, { color: colors.text }]}>
                 Cancel
               </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Not Assigned Info Modal */}
+      <Modal
+        visible={notAssignedInfo.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNotAssignedInfo({ visible: false })}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setNotAssignedInfo({ visible: false })}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+              <Ionicons name="alert-circle-outline" size={48} color={colors.warning} />
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Report Not Assigned</Text>
+            <Text style={[styles.modalOptionText, { color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }]}>
+              {notAssignedInfo.reportId
+                ? `Report #${notAssignedInfo.reportId} might be assigned to another officer.`
+                : 'This report might be assigned to another officer.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalCancelButton, { backgroundColor: colors.background }]}
+              onPress={() => setNotAssignedInfo({ visible: false })}
+            >
+              <Text style={[styles.modalCancelText, { color: colors.text }]}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Resolved Report Info Modal */}
+      <Modal
+        visible={resolvedInfo.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setResolvedInfo({ visible: false })}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setResolvedInfo({ visible: false })}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+              <Ionicons name="checkmark-done-outline" size={48} color={colors.success} />
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Report Resolved</Text>
+            <Text style={[styles.modalOptionText, { color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }]}>
+              {resolvedInfo.reportId ? `Report #${resolvedInfo.reportId} is already resolved.` : 'This report is already resolved.'}
+            </Text>
+            {resolvedInfo.resolvedAt && (
+              <Text style={[styles.modalOptionText, { color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }]}>
+                Resolved on {new Date(resolvedInfo.resolvedAt).toLocaleDateString()} at {new Date(resolvedInfo.resolvedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.modalCancelButton, { backgroundColor: colors.background }]}
+              onPress={() => setResolvedInfo({ visible: false })}
+            >
+              <Text style={[styles.modalCancelText, { color: colors.text }]}>OK</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
