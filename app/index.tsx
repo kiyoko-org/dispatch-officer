@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/theme-context';
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNotifications, useRealtimeReports, getDispatchClient } from 'dispatch-lib';
+import { getDispatchClient, useNotifications, useRealtimeReports } from 'dispatch-lib';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
