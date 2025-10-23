@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useOfficers } from 'dispatch-lib';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,11 +18,51 @@ function ProfileScreenContent() {
     officerId: false,
   });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [resolvedReportsCount, setResolvedReportsCount] = useState(0);
+  const [totalReportsCount, setTotalReportsCount] = useState(0);
 
   // Get officer data to check for assigned reports
-  const { officers } = useOfficers();
+  const officersHook = useOfficers();
+  const { officers } = officersHook;
   const currentOfficer = useMemo(() => officers.find((o: any) => o.id === user?.id), [officers, user?.id]);
   const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
+
+  // Get resolved reports function
+  const getResolvedReports = (officersHook as any).getResolvedReports;
+
+  // Fetch resolved reports count
+  useEffect(() => {
+    async function fetchResolvedReportsCount() {
+      if (!user?.id) {
+        setResolvedReportsCount(0);
+        return;
+      }
+
+      try {
+        if (getResolvedReports && typeof getResolvedReports === 'function') {
+          const { data, error } = await getResolvedReports(user.id);
+          if (!error && data) {
+            setResolvedReportsCount(data.length);
+            // Total reports is resolved + pending
+            setTotalReportsCount(data.length + (assignedReportId ? 1 : 0));
+          } else {
+            setResolvedReportsCount(0);
+            setTotalReportsCount(assignedReportId ? 1 : 0);
+          }
+        } else {
+          setResolvedReportsCount(0);
+          setTotalReportsCount(assignedReportId ? 1 : 0);
+        }
+      } catch (error) {
+        console.error('Error fetching resolved reports count:', error);
+        setResolvedReportsCount(0);
+        setTotalReportsCount(assignedReportId ? 1 : 0);
+      }
+    }
+
+    fetchResolvedReportsCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, assignedReportId]);
 
   const toggleFieldVisibility = (field: string) => {
     setRevealedFields(prev => ({ ...prev, [field]: !prev[field] }));
@@ -50,13 +90,13 @@ function ProfileScreenContent() {
     joined_date: 'January 15, 2020',
     status: 'Active',
     assigned_area: 'Tuguegarao City Center',
-    total_reports: 47,
-    resolved_reports: 42,
+    total_reports: totalReportsCount,
+    resolved_reports: resolvedReportsCount,
     pending_reports: assignedReportId ? 1 : 0, // Synced with assigned report
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       {/* Navigation Bar */}
       <NavBar
         title="Officer Profile"

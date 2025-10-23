@@ -3,7 +3,7 @@ import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
 import { downloadFile, useStoragePermission } from '@/hooks/use-storage-permission';
 import { Ionicons } from '@expo/vector-icons';
-import { useReports, useCategories, getDispatchClient } from 'dispatch-lib';
+import { getDispatchClient, useCategories, useOfficers, useReports } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -99,11 +99,36 @@ export default function ReportDetailsScreen() {
   const { getReportInfo } = useReports();
   const { categories } = useCategories();
   const { requestStoragePermission } = useStoragePermission();
+  const { officers } = useOfficers();
 
   const numericId = useMemo(() => {
     const parsed = Number(id);
     return Number.isFinite(parsed) ? parsed : null;
   }, [id]);
+
+  // Create a map of officer IDs to officer data for quick lookup
+  const officersMap = useMemo(() => {
+    const map = new Map();
+    officers.forEach((officer: any) => {
+      map.set(officer.id, officer);
+    });
+    return map;
+  }, [officers]);
+
+  // Helper function to get officer name by ID
+  const getOfficerName = (officerId: string | number) => {
+    const officer = officersMap.get(officerId);
+    if (!officer) return `Officer ${officerId}`;
+    
+    const firstName = officer.first_name || officer.user_metadata?.first_name || '';
+    const lastName = officer.last_name || officer.user_metadata?.last_name || '';
+    const badgeNumber = officer.badge_number || officer.user_metadata?.badge_number || '';
+    
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim() + (badgeNumber ? ` ${badgeNumber}` : '');
+    }
+    return badgeNumber ? `Officer ${badgeNumber}` : `Officer ${officerId}`;
+  };
 
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<any | null>(null);
@@ -137,7 +162,9 @@ useEffect(() => {
              const urls: { [key: string]: string } = {};
              
              for (const attachment of data.attachments) {
-               const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
+               const attachmentStr = typeof attachment === 'string' 
+                 ? attachment 
+                 : (attachment as any)?.url || (attachment as any)?.path || '';
                
                try {
                  const { data: signedUrlData } = await dispatchClient.supabaseClient.storage
@@ -261,7 +288,7 @@ useEffect(() => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Navigation Bar */}
@@ -464,9 +491,9 @@ useEffect(() => {
         {report.officers_involved && report.officers_involved.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Officers Involved</Text>
-            {report.officers_involved.map((officer: any, index: number) => (
+            {report.officers_involved.map((officerId: string | number, index: number) => (
               <Text key={index} style={[styles.sectionValue, { color: colors.text }]}>
-                {officer.name || officer.id || `Officer ${index + 1}`}
+                {getOfficerName(officerId)}
               </Text>
             ))}
           </View>
@@ -491,7 +518,9 @@ useEffect(() => {
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Attachments</Text>
             <View style={styles.attachmentsContainer}>
               {report.attachments.map((attachment: any, index: number) => {
-                const attachmentStr = typeof attachment === 'string' ? attachment : attachment.url || attachment.path || '';
+                const attachmentStr = typeof attachment === 'string' 
+                  ? attachment 
+                  : (attachment as any)?.url || (attachment as any)?.path || '';
                 const filename = attachmentStr.split('/').pop() || `Attachment ${index + 1}`;
                 const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
                 const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension);

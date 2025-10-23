@@ -16,7 +16,7 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
-    "dispatch-lib": "github:kiyoko-org/dispatch-lib#0eacc26c12404c038157bbae23a376a305f04fe4",
+    "dispatch-lib": "github:kiyoko-org/dispatch-lib#fb011e93c9ea22ced7b7fe5b1681262831d8540c",
     "expo": "54.0.17",
     "expo-constants": "~18.0.10",
     "expo-font": "~14.0.9",

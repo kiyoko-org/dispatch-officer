@@ -8,7 +8,7 @@ import { useNotifications } from 'dispatch-lib';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Modal, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type NotificationType = 'assignment' | 'update' | 'alert' | 'info';
 
@@ -179,6 +179,7 @@ function NotificationsContent() {
   const router = useRouter();
   const { colors } = useTheme();
   const { user } = useOfficerAuth();
+  const insets = useSafeAreaInsets();
   const { notifications: allNotifications, loading, error, deleteNotification } = useNotifications();
   
   const [selectionMode, setSelectionMode] = useState(false);
@@ -477,7 +478,7 @@ function NotificationsContent() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
+      edges={['top', 'bottom']}
     >
       {/* Navigation Bar */}
       <NavBar
@@ -532,7 +533,7 @@ function NotificationsContent() {
 
           {/* Selection Mode Action Bar */}
           {selectionMode && (
-            <View style={[styles.actionBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <View style={[styles.actionBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: insets.bottom + 16 }]}>
               <Text style={[styles.actionBarText, { color: colors.text }]}>
                 {selectedIds.size} selected
               </Text>

@@ -5,17 +5,18 @@ import { useTheme } from '@/contexts/theme-context';
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNotifications, useOfficers, useReports } from 'dispatch-lib';
+import { useNotifications, useRealtimeReports, getDispatchClient } from 'dispatch-lib';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function IndexContent() {
 	const router = useRouter();
 	const { colors } = useTheme();
 	const { user, signOut } = useOfficerAuth();
+	const insets = useSafeAreaInsets();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [showLogoutModal, setShowLogoutModal] = useState(false);
 	const drawerX = useRef(new Animated.Value(-280)).current;
@@ -72,8 +73,10 @@ function IndexContent() {
 
 	// Listen for incoming notifications and update badge immediately
 	useEffect(() => {
-		const subscription = Notifications.addNotificationReceivedListener(notification => {
+		const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
 			console.log('Notification received:', notification);
+			console.log('Notification data:', notification.request.content.data);
+			
 			// Update timestamp ref
 			lastNotificationTimeRef.current = Date.now();
 			// Increment count optimistically for instant feedback
@@ -84,50 +87,102 @@ function IndexContent() {
 			});
 			// Trigger recalculation
 			setLastNotificationTime(Date.now());
+			
+			// Check if this is a report assignment notification
+			const notifData = notification.request.content.data as any;
+			if (notifData?.type === 'report_assigned' && notifData?.report_id) {
+				console.log('Report assignment detected, report ID:', notifData.report_id);
+			}
+			// Trigger a refresh to update the officer data and realtime reports
+			setForceUpdate(prev => prev + 1);
+			refreshRealtime();
 		});
 
 		return () => subscription.remove();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 
 
-	// Get officer and assigned report id
-	const { officers, loading: officersLoading } = useOfficers();
-	const currentOfficer = useMemo(() => officers.find((o: any) => o.id === user?.id), [officers, user?.id]);
-	const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
+	// Track assigned report id for current officer without using useOfficers
+	const [assignedReportId, setAssignedReportId] = useState<number | null | undefined>(undefined);
+	const previousAssignedReportId = useRef<number | null | undefined>(assignedReportId);
 
-	// Fetch only the assigned report using dispatch-lib
-	const { getReportInfo, reports } = useReports();
-	const [isFetching, setIsFetching] = useState(true);
-	const [assignedReport, setAssignedReport] = useState<any | null>(null);
+	useEffect(() => {
+		let subscription: any;
+		let isMounted = true;
+		async function initOfficerAssignmentWatcher() {
+			if (!user?.id) return;
+			const client = getDispatchClient();
+			// Initial fetch of current officer assignment
+			try {
+				const { data, error } = await client.supabaseClient
+					.from('officers')
+					.select('assigned_report_id')
+					.eq('id', user.id)
+					.single();
+				if (error) {
+					console.error('Error fetching officer assigned_report_id:', error);
+				} else if (isMounted) {
+					setAssignedReportId((data as any)?.assigned_report_id ?? null);
+					console.log('Initial assigned_report_id:', (data as any)?.assigned_report_id ?? null);
+				}
+			} catch (e) {
+				console.error('Error initial officer fetch:', e);
+			}
+
+			// Realtime subscribe to this officer row only
+			subscription = client.supabaseClient
+				.channel(`officer-assignment-${user.id}`)
+				.on(
+					'postgres_changes',
+					{ event: '*', schema: 'public', table: 'officers', filter: `id=eq.${user.id}` },
+					(payload: any) => {
+						const newAssigned = (payload.new as any)?.assigned_report_id ?? null;
+						console.log('Officer realtime change - assigned_report_id:', newAssigned, 'event:', payload.eventType);
+						setAssignedReportId(newAssigned);
+					}
+				)
+				.subscribe((status: any) => {
+					console.log('Officer assignment subscription status:', status);
+				});
+		}
+		initOfficerAssignmentWatcher();
+		return () => {
+			isMounted = false;
+			try {
+				if (subscription) {
+					const client = getDispatchClient();
+					client.supabaseClient.removeChannel(subscription);
+				}
+			} catch {}
+		};
+	}, [user?.id, forceUpdate]);
+
+	// Control realtime subscription so we can force a refetch on demand
+	const [realtimeEnabled, setRealtimeEnabled] = useState(true);
+	const refreshRealtime = useCallback(() => {
+		// Toggle enabled to trigger unsubscribe -> subscribe which re-fetches
+		setRealtimeEnabled(false);
+		setTimeout(() => setRealtimeEnabled(true), 0);
+	}, []);
+
+	// Fetch all reports using real-time hook and filter for assigned report
+	const { reports: allReports, loading: reportsLoading } = useRealtimeReports({ enabled: realtimeEnabled });
+	const assignedReport = useMemo(() => {
+		if (!assignedReportId) return null;
+		const report = allReports.find((r: any) => r.id === assignedReportId);
+		console.log('Found assigned report:', report?.incident_title, 'Status:', report?.status);
+		return report || null;
+	}, [allReports, assignedReportId]);
+	const isFetching = reportsLoading;
 	
-
-	async function loadAssignedReport() {
-		if (!assignedReportId) {
-			setAssignedReport(null);
-			setIsFetching(false);
-			return;
-		}
-		setIsFetching(true);
-		try {
-			const { data, error } = await getReportInfo(assignedReportId);
-			if (error) {
-				console.error('Error fetching assigned report:', error);
-			}
-			// Only show the report if it's not resolved
-			if (data && data.status === 'resolved') {
-				setAssignedReport(null);
-			} else {
-				setAssignedReport(data || null);
-			}
-		} finally {
-			setIsFetching(false);
-		}
-	}
+	console.log('useRealtimeReports - assignedReport:', assignedReport?.incident_title, 'loading:', isFetching);
 
 	// Reload read notifications and assigned report when screen comes into focus
 	useFocusEffect(
 		useCallback(() => {
+			console.log('Screen focused - reloading data');
 			async function reloadData() {
 				try {
 					const stored = await AsyncStorage.getItem('readNotifications');
@@ -144,57 +199,26 @@ function IndexContent() {
 						setUnreadCount(count);
 						lastCountRef.current = count;
 						lastNotificationTimeRef.current = Date.now();
-						// Trigger a re-render to ensure the badge updates
-						setForceUpdate(prev => prev + 1);
 					}
 				} catch (error) {
 					console.error('Error loading read notifications:', error);
 				}
 				
-				// Reload assigned report when screen comes into focus
-				if (!officersLoading) {
-					loadAssignedReport();
-				}
+				// Force a complete refresh of assigned report (officer watcher + realtime reports)
+				console.log('Forcing data refresh on focus');
+				setForceUpdate(prev => prev + 1);
+				refreshRealtime();
 			}
 			reloadData();
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [user?.id, officersLoading, assignedReportId, allNotifications.length])
+		}, [user?.id, allNotifications.length])
 	);
 
-	async function handleRefresh() {
-		// Reload assigned report
-		await loadAssignedReport();
-		
-		// Reload read notifications to update the badge
-		try {
-			const stored = await AsyncStorage.getItem('readNotifications');
-			if (stored) {
-				const readSet = new Set<string>(JSON.parse(stored));
-				setReadNotifications(readSet);
-				
-				// Recalculate unread count with fresh data
-				if (user?.id) {
-					const count = allNotifications.filter(n => 
-						n.user_id === user.id && !readSet.has(n.id)
-					).length;
-					setUnreadCount(count);
-				}
-			}
-		} catch (error) {
-			console.error('Error reloading read notifications:', error);
-		}
-	}
-
-	// Initialize notifications on mount
-	
-
+	// Track when assigned report ID changes for logging
 	useEffect(() => {
-		// Load when officer data ready, assignedReportId changes, or reports update
-		if (!officersLoading) {
-			loadAssignedReport();
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [officersLoading, assignedReportId, reports]);
+		console.log('assignedReportId changed:', previousAssignedReportId.current, '->', assignedReportId);
+		previousAssignedReportId.current = assignedReportId;
+	}, [assignedReportId]);
 
 	
 
@@ -228,10 +252,16 @@ function IndexContent() {
 		router.replace('/login');
 	}
 
-	const listData = useMemo(() => (assignedReport ? [assignedReport] : []), [assignedReport]);
+	const listData = useMemo(() => {
+		// Filter out resolved reports
+		if (assignedReport && assignedReport.status !== 'resolved') {
+			return [assignedReport];
+		}
+		return [];
+	}, [assignedReport]);
 
 	return (
-		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
 			{/* Navigation Bar */}
 			<NavBar
 				title="Assigned Reports"
@@ -272,7 +302,7 @@ function IndexContent() {
 					data={listData}
 					keyExtractor={(item: any) => item.id.toString()}
 					contentContainerStyle={styles.listContent}
-					onRefresh={handleRefresh}
+					onRefresh={() => { setForceUpdate(prev => prev + 1); refreshRealtime(); }}
 					refreshing={isFetching}
 					renderItem={({ item }: { item: any }) => (
 						<TouchableOpacity
@@ -327,28 +357,30 @@ function IndexContent() {
 				</Animated.View>
 			)}
 			<Animated.View style={[styles.drawer, { backgroundColor: colors.card, borderRightColor: colors.border, transform: [{ translateX: drawerX }] }]}>
-				<View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
-					<Ionicons name="person-circle" size={48} color={colors.primary} />
-					<View>
-						<Text style={[styles.drawerTitle, { color: colors.text }] }>
-							{user?.user_metadata?.first_name ? 
-								`${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : 
-								'Officer'
-							}
-						</Text>
-						<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }] }>
-							Badge #{user?.user_metadata?.badge_number || 'N/A'}
-						</Text>
+				<SafeAreaView style={styles.drawerContent} edges={['top', 'bottom']}>
+					<View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
+						<Ionicons name="person-circle" size={48} color={colors.primary} />
+						<View>
+							<Text style={[styles.drawerTitle, { color: colors.text }] }>
+								{user?.user_metadata?.first_name ? 
+									`${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : 
+									'Officer'
+								}
+							</Text>
+							<Text style={[styles.drawerSubtitle, { color: colors.textSecondary }] }>
+								Badge #{user?.user_metadata?.badge_number || 'N/A'}
+							</Text>
+						</View>
 					</View>
-				</View>
-				<View style={styles.menuList}>
-					<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); router.push('/profile'); }} colors={colors} />
-					<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); router.push('/settings'); }} colors={colors} />
-					<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
-				</View>
-				<View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
-					<MenuItem icon="log-out-outline" label="Logout" destructive onPress={handleLogoutPress} colors={colors} />
-				</View>
+					<View style={styles.menuList}>
+						<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); router.push('/profile'); }} colors={colors} />
+						<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); router.push('/settings'); }} colors={colors} />
+						<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
+					</View>
+					<View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
+						<MenuItem icon="log-out-outline" label="Logout" destructive onPress={handleLogoutPress} colors={colors} />
+					</View>
+				</SafeAreaView>
 			</Animated.View>
 
 			{/* Logout Confirmation Modal */}
@@ -486,7 +518,9 @@ const styles = StyleSheet.create({
 		left: 0,
 		width: 280,
 		borderRightWidth: 1,
-		paddingTop: 52,
+	},
+	drawerContent: {
+		flex: 1,
 	},
 	drawerHeader: {
 		flexDirection: 'row',

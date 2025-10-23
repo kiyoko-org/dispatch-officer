@@ -3,9 +3,9 @@ import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useReports } from 'dispatch-lib';
+import { useOfficers } from 'dispatch-lib';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,44 +13,93 @@ function ResolvedReportsContent() {
 	const router = useRouter();
 	const { colors } = useTheme();
 	const { user } = useOfficerAuth();
-	const { reports } = useReports();
+	const officersHook = useOfficers();
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [loading, setLoading] = useState(true);
+	const [resolvedReports, setResolvedReports] = useState<any[]>([]);
 
-	// Filter reports that are resolved and were assigned to this officer
-	const resolvedReports = useMemo(() => {
-		if (!user?.id) return [];
-		const filtered = reports
-			.filter(report => {
-				// Show resolved reports only
-				if (report.status !== 'resolved') return false;
-				
-				// Check if this report has officer_assigned_date (meaning it was assigned to an officer)
-				// This is the best indicator that an officer worked on this report
-				return (report as any).officer_assigned_date != null;
-			})
-			.sort((a, b) => {
-				// Sort by resolved_at if available, otherwise by created date
-				const dateA = new Date((a as any).resolved_at || a.created_at).getTime();
-				const dateB = new Date((b as any).resolved_at || b.created_at).getTime();
-				return dateB - dateA; // Most recent first
-			});
+	// Get officers list for name lookup
+	const { officers } = officersHook;
+
+	// Create a map of officer IDs to officer data for quick lookup
+	const officersMap = useMemo(() => {
+		const map = new Map();
+		officers.forEach((officer: any) => {
+			map.set(officer.id, officer);
+		});
+		return map;
+	}, [officers]);
+
+	// Helper function to get officer name by ID
+	const getOfficerName = (officerId: string | number) => {
+		const officer = officersMap.get(officerId);
+		if (!officer) return `Officer ${officerId}`;
 		
-		// Set loading to false once we have data
-		if (filtered.length > 0 || reports.length > 0) {
-			setLoading(false);
+		const firstName = officer.first_name || officer.user_metadata?.first_name || '';
+		const lastName = officer.last_name || officer.user_metadata?.last_name || '';
+		const badgeNumber = officer.badge_number || officer.user_metadata?.badge_number || '';
+		
+		if (firstName || lastName) {
+			return `${firstName} ${lastName}`.trim() + (badgeNumber ? ` ${badgeNumber}` : '');
 		}
-		
-		return filtered;
-	}, [reports, user?.id]);
+		return badgeNumber ? `Officer ${badgeNumber}` : `Officer ${officerId}`;
+	};
+
+	// Check if getResolvedReports function exists in the hook
+	const getResolvedReports = (officersHook as any).getResolvedReports;
+
+	useEffect(() => {
+		async function fetchResolvedReports() {
+			if (!user?.id) {
+				setResolvedReports([]);
+				setLoading(false);
+				return;
+			}
+
+			setLoading(true);
+			try {
+				// Try to use getResolvedReports if it exists
+				if (getResolvedReports && typeof getResolvedReports === 'function') {
+					const { data, error } = await getResolvedReports(user.id);
+					if (!error && data) {
+						setResolvedReports(data);
+					} else {
+						console.error('Error fetching resolved reports:', error);
+						setResolvedReports([]);
+					}
+				} else {
+					console.warn('getResolvedReports function not available in useOfficers hook');
+					setResolvedReports([]);
+				}
+			} catch (error) {
+				console.error('Error in fetchResolvedReports:', error);
+				setResolvedReports([]);
+			} finally {
+				setLoading(false);
+			}
+		}
+
+		fetchResolvedReports();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [user?.id]);
 
 	async function handleRefresh() {
+		if (!user?.id) return;
+		
 		setIsRefreshing(true);
-		// The useReports hook should automatically refetch
-		// Add a small delay to show the refresh animation
-		setTimeout(() => {
+		try {
+			// Try to use getResolvedReports if it exists
+			if (getResolvedReports && typeof getResolvedReports === 'function') {
+				const { data, error } = await getResolvedReports(user.id);
+				if (!error && data) {
+					setResolvedReports(data);
+				}
+			}
+		} catch (error) {
+			console.error('Error refreshing resolved reports:', error);
+		} finally {
 			setIsRefreshing(false);
-		}, 500);
+		}
 	}
 
 	function handleReportPress(reportId: number) {
@@ -58,7 +107,7 @@ function ResolvedReportsContent() {
 	}
 
 	return (
-		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
 			{/* Navigation Bar */}
 			<NavBar
 				title="Resolved Reports"
@@ -67,15 +116,6 @@ function ResolvedReportsContent() {
 				showLeftIcon={true}
 				showRightIcon={false}
 			/>
-
-			{/* Header Stats */}
-			<View style={[styles.statsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-				<View style={styles.statBox}>
-					<Ionicons name="checkmark-circle" size={32} color="#10B981" />
-					<Text style={styles.statNumber}>{resolvedReports.length}</Text>
-					<Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Resolved</Text>
-				</View>
-			</View>
 
 			{/* Reports List */}
 			{loading ? (
@@ -107,26 +147,33 @@ function ResolvedReportsContent() {
 							<View style={styles.detailRow}>
 								<Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
 								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									Reported: {item.incident_date || item.created_at} {item.incident_time ? `at ${item.incident_time}` : ''}
+									Reported: {item.incident_date ? new Date(item.incident_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString()} {item.incident_time ? `at ${item.incident_time}` : ''}
 								</Text>
 							</View>
-							<View style={styles.detailRow}>
-								<Ionicons name="checkmark-done-outline" size={16} color={colors.textSecondary} />
-								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									Resolved: {(item as any).resolved_at ? new Date((item as any).resolved_at).toLocaleDateString() : 'N/A'}
-								</Text>
-							</View>
-							<View style={styles.detailRow}>
-								<Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									{item.street_address || item.nearby_landmark || 'No location specified'}
-								</Text>
-							</View>
+							{(item as any).resolved_at && (
+								<View style={styles.detailRow}>
+									<Ionicons name="checkmark-done-outline" size={16} color={colors.textSecondary} />
+									<Text style={[styles.detailText, { color: colors.textSecondary }]}>
+										Resolved: {new Date((item as any).resolved_at).toLocaleDateString()} at {new Date((item as any).resolved_at).toLocaleTimeString()}
+									</Text>
+								</View>
+							)}
 						</View>
 
-						<Text style={[styles.reportDescription, { color: colors.text }]}>
-							{item.what_happened || 'No details provided'}
-						</Text>
+						{/* Officers Involved */}
+						{item.officers_involved && item.officers_involved.length > 0 && (
+							<View style={styles.officersCard}>
+								<View style={styles.officersHeader}>
+									<Ionicons name="people-outline" size={16} color="#3B82F6" />
+									<Text style={styles.officersTitle}>Officers Involved</Text>
+								</View>
+								{item.officers_involved.map((officerId: string | number, index: number) => (
+									<Text key={index} style={styles.officerName}>
+										• {getOfficerName(officerId)}
+									</Text>
+								))}
+							</View>
+						)}
 
 						{/* Resolution Notes */}
 						{(item as any).resolution_notes && (
@@ -235,6 +282,31 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		marginBottom: 12,
 		lineHeight: 20,
+	},
+	officersCard: {
+		backgroundColor: '#EFF6FF',
+		padding: 12,
+		borderRadius: 8,
+		marginBottom: 12,
+		borderLeftWidth: 3,
+		borderLeftColor: '#3B82F6',
+	},
+	officersHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		marginBottom: 8,
+	},
+	officersTitle: {
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#1E40AF',
+	},
+	officerName: {
+		fontSize: 13,
+		color: '#1E3A8A',
+		lineHeight: 20,
+		marginLeft: 4,
 	},
 	resolutionCard: {
 		backgroundColor: '#ECFDF5',

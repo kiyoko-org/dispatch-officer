@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 export default function LoginScreen() {
@@ -43,12 +44,13 @@ export default function LoginScreen() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background, paddingHorizontal: 24, paddingTop: 48 }}>
-            <Stack.Screen options={{ title: 'Sign in', headerShown: false }} />
-            <StatusBar
-                barStyle={activeTheme === 'dark' ? "light-content" : "dark-content"}
-                backgroundColor={colors.background}
-            />
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+            <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 48 }}>
+                <Stack.Screen options={{ title: 'Sign in', headerShown: false }} />
+                <StatusBar
+                    barStyle={activeTheme === 'dark' ? "light-content" : "dark-content"}
+                    backgroundColor={colors.background}
+                />
             
             {/* Title */}
             <View style={{ marginBottom: 32 }}>
@@ -153,7 +155,8 @@ export default function LoginScreen() {
                 </Text>
             </TouchableOpacity>
 
-        </View>
+            </View>
+        </SafeAreaView>
     );
 }
 
