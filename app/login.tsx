@@ -3,7 +3,7 @@ import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -16,6 +16,7 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
     const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [showForgotModal, setShowForgotModal] = useState(false);
 
     async function handleSignIn() {
         if (!badgeNumber || !password) {
@@ -118,7 +119,7 @@ export default function LoginScreen() {
 
                 {/* Forgot Password */}
                 <View style={{ alignItems: 'flex-end' }}>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowForgotModal(true)}>
                         <Text style={{ fontSize: 14, color: colors.textSecondary }}>Forgot password?</Text>
                     </TouchableOpacity>
                 </View>
@@ -156,6 +157,58 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             </View>
+
+            {/* Forgot Password Info Modal */}
+            <Modal
+                visible={showForgotModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowForgotModal(false)}
+            >
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setShowForgotModal(false)}
+                    style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 20,
+                    }}
+                >
+                    <View
+                        style={{
+                            width: '100%',
+                            maxWidth: 400,
+                            borderRadius: 16,
+                            padding: 24,
+                            alignItems: 'center',
+                            backgroundColor: colors.card,
+                        }}
+                    >
+                        <Ionicons name="information-circle-outline" size={48} color={colors.primary} />
+                        <Text style={{ fontSize: 20, fontWeight: '700', marginTop: 12, color: colors.text, textAlign: 'center' }}>
+                            Password Reset
+                        </Text>
+                        <Text style={{ fontSize: 16, marginTop: 8, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 }}>
+                            Please visit your department's admin to reset your password.
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={() => setShowForgotModal(false)}
+                            style={{
+                                marginTop: 16,
+                                paddingVertical: 12,
+                                paddingHorizontal: 24,
+                                borderRadius: 10,
+                                backgroundColor: colors.primary,
+                            }}
+                        >
+                            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 }
