@@ -3,7 +3,7 @@ import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View, Modal } from 'react-native';
+import { ActivityIndicator, Modal, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
