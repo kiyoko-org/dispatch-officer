@@ -3,9 +3,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { ThemedAlertHost } from '@/components/ui/themed-alert';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ThemeProvider, useTheme } from '@/contexts/theme-context';
-import { ThemedAlertHost } from '@/components/ui/themed-alert';
 
 export const unstable_settings = {
   anchor: '(tabs)',

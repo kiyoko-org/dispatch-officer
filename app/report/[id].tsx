@@ -4,7 +4,7 @@ import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
 import { downloadAudioToCache } from '@/hooks/use-audio-manager';
-import { downloadFile, useStoragePermission, isFileAlreadyDownloaded } from '@/hooks/use-storage-permission';
+import { downloadFile, isFileAlreadyDownloaded, useStoragePermission } from '@/hooks/use-storage-permission';
 import { Ionicons } from '@expo/vector-icons';
 import { getDispatchClient, useCategories, useOfficers, useReports } from 'dispatch-lib';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';

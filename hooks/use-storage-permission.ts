@@ -1,7 +1,7 @@
+import { showThemedAlert } from '@/components/ui/themed-alert';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform } from 'react-native';
-import { showThemedAlert } from '@/components/ui/themed-alert';
 
 export const useStoragePermission = () => {
   const requestStoragePermission = async (): Promise<boolean> => {
