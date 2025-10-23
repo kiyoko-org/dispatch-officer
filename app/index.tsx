@@ -187,22 +187,6 @@ function IndexContent() {
 				try {
 					const stored = await AsyncStorage.getItem('readNotifications');
 					const readSet = stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
-					
-					// Mark all unread notifications as read when returning to home screen
-					if (user?.id) {
-						const unreadNotifications = allNotifications
-							.filter(n => n.user_id === user.id && !readSet.has(n.id))
-							.map(n => n.id);
-						
-						if (unreadNotifications.length > 0) {
-							// Add all unread notifications to the read set
-							unreadNotifications.forEach(id => readSet.add(id));
-							// Save to AsyncStorage
-							await AsyncStorage.setItem('readNotifications', JSON.stringify(Array.from(readSet)));
-							console.log('Marked', unreadNotifications.length, 'notifications as read');
-						}
-					}
-					
 					setReadNotifications(readSet);
 					
 					// Force recalculation with the latest allNotifications data

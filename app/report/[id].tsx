@@ -1,3 +1,4 @@
+import { ImagePreviewModal } from '@/components/image-preview-modal';
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
@@ -136,6 +137,7 @@ export default function ReportDetailsScreen() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [attachmentUrls, setAttachmentUrls] = useState<{ [key: string]: string }>({});
   const [downloadingAttachments, setDownloadingAttachments] = useState<Set<string>>(new Set());
+  const [previewImage, setPreviewImage] = useState<{ uri: string; filename: string; path: string } | null>(null);
 
 useEffect(() => {
     let mounted = true;
@@ -246,6 +248,87 @@ useEffect(() => {
     }
   }
 
+  async function handleDownloadImageFromPreview() {
+    if (!previewImage) return;
+    
+    setDownloadingAttachments(prev => new Set(prev).add(previewImage.path));
+    
+    try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission && Platform.OS !== 'web') {
+        return;
+      }
+
+      const signedUrl = attachmentUrls[previewImage.path];
+      if (!signedUrl) {
+        Alert.alert('Error', 'Could not find signed URL for this image.');
+        return;
+      }
+
+      const success = await downloadFile(signedUrl, previewImage.filename);
+      if (success) {
+        // Optionally close the preview after successful download
+        // setPreviewImage(null);
+      } else {
+        Alert.alert('Error', 'Could not download the image.');
+      }
+    } catch (err) {
+      console.error('Error downloading image:', err);
+      Alert.alert('Error', 'Could not download the image.');
+    } finally {
+      setDownloadingAttachments(prev => {
+        const next = new Set(prev);
+        next.delete(previewImage.path);
+        return next;
+      });
+    }
+  }
+
+  async function handleAttachmentPress(attachmentPath: string, filename: string, isImage: boolean) {
+    const fileExtension = filename.split('.').pop()?.toLowerCase() || '';
+    
+    // For images, show preview instead of downloading
+    if (isImage) {
+      const signedUrl = attachmentUrls[attachmentPath];
+      if (signedUrl) {
+        setPreviewImage({ uri: signedUrl, filename, path: attachmentPath });
+      } else {
+        Alert.alert('Error', 'Could not load image preview.');
+      }
+      return;
+    }
+    
+    // For all other files, download to Downloads folder
+    setDownloadingAttachments(prev => new Set(prev).add(attachmentPath));
+    
+    try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission && Platform.OS !== 'web') {
+        return;
+      }
+
+      const signedUrl = attachmentUrls[attachmentPath];
+      if (!signedUrl) {
+        Alert.alert('Error', 'Could not find signed URL for this attachment.');
+        return;
+      }
+
+      const success = await downloadFile(signedUrl, filename);
+      if (!success) {
+        Alert.alert('Error', 'Could not download the file.');
+      }
+    } catch (err) {
+      console.error('Error downloading attachment:', err);
+      Alert.alert('Error', 'Could not download the file.');
+    } finally {
+      setDownloadingAttachments(prev => {
+        const next = new Set(prev);
+        next.delete(attachmentPath);
+        return next;
+      });
+    }
+  }
+
   async function handleDownloadAttachment(attachmentPath: string, filename: string) {
     setDownloadingAttachments(prev => new Set(prev).add(attachmentPath));
     
@@ -272,9 +355,10 @@ useEffect(() => {
       }
 
       const success = await downloadFile(signedUrl, filename);
-      if (success) {
-        console.log('Download completed for:', filename);
+      if (!success) {
+        console.log('File download failed or was cancelled');
       }
+
     } catch (err) {
       console.error('Download error:', err);
       Alert.alert('Download Failed', 'An error occurred while downloading the file.');
@@ -543,31 +627,37 @@ useEffect(() => {
                 
                 return (
                   <View key={index} style={[styles.attachmentItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    {isImage && signedUrl ? (
-                      <Image
-                        source={{ uri: signedUrl }}
-                        style={styles.attachmentThumbnail}
-                      />
-                    ) : (
-                      <Ionicons name={getFileIcon(fileExtension)} size={20} color={colors.primary} />
-                    )}
-                    <View style={styles.attachmentInfo}>
-                      <Text style={[styles.attachmentName, { color: colors.text }]}>
-                        {filename}
-                      </Text>
-                      <Text style={[styles.attachmentType, { color: colors.textSecondary }]}>
-                        {getFileType(fileExtension)}
-                      </Text>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleAttachmentPress(attachmentStr, filename, isImage)}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                      disabled={isImage ? downloadingAttachments.has(attachmentStr) : downloadingAttachments.has(attachmentStr)}
+                    >
+                      {isImage && signedUrl ? (
+                        <Image
+                          source={{ uri: signedUrl }}
+                          style={styles.attachmentThumbnail}
+                        />
+                      ) : (
+                        <Ionicons name={getFileIcon(fileExtension)} size={20} color={colors.primary} />
+                      )}
+                      <View style={styles.attachmentInfo}>
+                        <Text style={[styles.attachmentName, { color: colors.text }]}>
+                          {filename}
+                        </Text>
+                        <Text style={[styles.attachmentType, { color: colors.textSecondary }]}>
+                          {getFileType(fileExtension)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                     <TouchableOpacity 
-                      onPress={() => handleDownloadAttachment(attachmentStr, filename)}
+                      onPress={() => handleAttachmentPress(attachmentStr, filename, isImage)}
                       disabled={downloadingAttachments.has(attachmentStr)}
                       style={{ opacity: downloadingAttachments.has(attachmentStr) ? 0.5 : 1 }}
                     >
                       {downloadingAttachments.has(attachmentStr) ? (
                         <ActivityIndicator size="small" color={colors.primary} />
                       ) : (
-                        <Ionicons name="download-outline" size={20} color={colors.primary} />
+                        <Ionicons name={isImage ? 'eye-outline' : 'download-outline'} size={20} color={colors.primary} />
                       )}
                     </TouchableOpacity>
                   </View>
@@ -601,6 +691,19 @@ useEffect(() => {
             title: report.incident_title || `Report #${report.id}`,
             address: `${report.street_address || ''}${report.city ? `, ${report.city}` : ''}${report.province ? `, ${report.province}` : ''}`,
           }}
+        />
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <ImagePreviewModal
+          visible={!!previewImage}
+          imageUri={previewImage.uri}
+          filename={previewImage.filename}
+          onClose={() => setPreviewImage(null)}
+          onDownload={handleDownloadImageFromPreview}
+          isDownloading={downloadingAttachments.has(previewImage.path)}
+          colors={colors}
         />
       )}
     </SafeAreaView>
