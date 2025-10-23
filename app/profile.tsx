@@ -3,7 +3,7 @@ import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useOfficers } from 'dispatch-lib';
+import { getDispatchClient, useOfficers } from 'dispatch-lib';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -27,8 +27,35 @@ function ProfileScreenContent() {
   const currentOfficer = useMemo(() => officers.find((o: any) => o.id === user?.id), [officers, user?.id]);
   const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
 
-  // Get resolved reports function
-  const getResolvedReports = (officersHook as any).getResolvedReports;
+  // Fallback: direct Supabase query to avoid RPC 42804
+  async function fetchResolvedReportsCountFallback(officerId: string | number): Promise<number> {
+    try {
+      const client = getDispatchClient();
+      const { data, error } = await client.supabaseClient
+        .from('reports')
+        .select('id, officers_involved, status')
+        .eq('status', 'resolved');
+
+      if (error || !data) {
+        console.error('Resolved count fallback error:', error);
+        return 0;
+      }
+
+      const count = (data as any[]).filter((r) => {
+        const list = (r as any).officers_involved;
+        if (Array.isArray(list)) {
+          return list.includes(officerId) || list.includes(Number(officerId));
+        }
+        // If the field isn't an array, include by default (consistent with Resolved screen fallback)
+        return true;
+      }).length;
+
+      return count;
+    } catch (e) {
+      console.error('Resolved count fallback unexpected error:', e);
+      return 0;
+    }
+  }
 
   // Fetch resolved reports count
   useEffect(() => {
@@ -39,20 +66,10 @@ function ProfileScreenContent() {
       }
 
       try {
-        if (getResolvedReports && typeof getResolvedReports === 'function') {
-          const { data, error } = await getResolvedReports(user.id);
-          if (!error && data) {
-            setResolvedReportsCount(data.length);
-            // Total reports is resolved + pending
-            setTotalReportsCount(data.length + (assignedReportId ? 1 : 0));
-          } else {
-            setResolvedReportsCount(0);
-            setTotalReportsCount(assignedReportId ? 1 : 0);
-          }
-        } else {
-          setResolvedReportsCount(0);
-          setTotalReportsCount(assignedReportId ? 1 : 0);
-        }
+        // Use fallback-only to avoid RPC 42804 errors
+        const count = await fetchResolvedReportsCountFallback(user.id);
+        setResolvedReportsCount(count);
+        setTotalReportsCount(count + (assignedReportId ? 1 : 0));
       } catch (error) {
         console.error('Error fetching resolved reports count:', error);
         setResolvedReportsCount(0);

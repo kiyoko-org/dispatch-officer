@@ -3,7 +3,7 @@ import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useOfficers } from 'dispatch-lib';
+import { getDispatchClient, useOfficers } from 'dispatch-lib';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -17,6 +17,8 @@ function ResolvedReportsContent() {
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [resolvedReports, setResolvedReports] = useState<any[]>([]);
+	const [expandedOfficers, setExpandedOfficers] = useState<Set<number>>(new Set());
+	const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
 
 	// Get officers list for name lookup
 	const { officers } = officersHook;
@@ -46,7 +48,69 @@ function ResolvedReportsContent() {
 	};
 
 	// Check if getResolvedReports function exists in the hook
-	const getResolvedReports = (officersHook as any).getResolvedReports;
+	// const getResolvedReports = (officersHook as any).getResolvedReports; // RPC disabled temporarily due to 42804 mismatch
+
+	// Utils: safe date/time formatting
+	function parseDate(value: any): Date | null {
+		if (!value) return null;
+		const d = new Date(value);
+		return isNaN(d.getTime()) ? null : d;
+	}
+
+	function formatDateLocal(value: any): string {
+		const d = parseDate(value);
+		return d ? d.toLocaleDateString() : '';
+	}
+
+	function formatTimeNoSecondsFromDate(value: any): string {
+		const d = parseDate(value);
+		return d ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+	}
+
+	function toggleOfficers(reportId: number) {
+		setExpandedOfficers((prev) => {
+			const next = new Set(prev);
+			if (next.has(reportId)) next.delete(reportId); else next.add(reportId);
+			return next;
+		});
+	}
+
+	function toggleNotes(reportId: number) {
+		setExpandedNotes((prev) => {
+			const next = new Set(prev);
+			if (next.has(reportId)) next.delete(reportId); else next.add(reportId);
+			return next;
+		});
+	}
+
+	// Fallback query to avoid RPC type mismatch (42804) by querying Supabase directly
+	async function fetchResolvedReportsFallback(officerId: string | number): Promise<any[]> {
+		try {
+			const client = getDispatchClient();
+			const { data, error } = await client.supabaseClient
+				.from('reports')
+				.select('id, incident_title, incident_date, incident_time, created_at, resolved_at, officers_involved, police_notes, status')
+				.eq('status', 'resolved')
+				.order('resolved_at', { ascending: false });
+
+			if (error || !data) {
+				console.error('Fallback fetch error:', error);
+				return [];
+			}
+
+			// If officers_involved is an array, filter to this officer; otherwise include all
+			return (data as any[]).filter((r) => {
+				const list = (r as any).officers_involved;
+				if (Array.isArray(list)) {
+					return list.includes(officerId) || list.includes(Number(officerId));
+				}
+				return true;
+			});
+		} catch (e) {
+			console.error('Fallback fetch unexpected error:', e);
+			return [];
+		}
+	}
 
 	useEffect(() => {
 		async function fetchResolvedReports() {
@@ -58,22 +122,9 @@ function ResolvedReportsContent() {
 
 			setLoading(true);
 			try {
-				// Try to use getResolvedReports if it exists
-				if (getResolvedReports && typeof getResolvedReports === 'function') {
-					const { data, error } = await getResolvedReports(user.id);
-					if (!error && data) {
-						setResolvedReports(data);
-					} else {
-						console.error('Error fetching resolved reports:', error);
-						setResolvedReports([]);
-					}
-				} else {
-					console.warn('getResolvedReports function not available in useOfficers hook');
-					setResolvedReports([]);
-				}
-			} catch (error) {
-				console.error('Error in fetchResolvedReports:', error);
-				setResolvedReports([]);
+				// Fallback-only: avoid RPC 42804 error logs
+				const fallback = await fetchResolvedReportsFallback(user.id);
+				setResolvedReports(fallback);
 			} finally {
 				setLoading(false);
 			}
@@ -88,15 +139,8 @@ function ResolvedReportsContent() {
 		
 		setIsRefreshing(true);
 		try {
-			// Try to use getResolvedReports if it exists
-			if (getResolvedReports && typeof getResolvedReports === 'function') {
-				const { data, error } = await getResolvedReports(user.id);
-				if (!error && data) {
-					setResolvedReports(data);
-				}
-			}
-		} catch (error) {
-			console.error('Error refreshing resolved reports:', error);
+			const fallback = await fetchResolvedReportsFallback(user.id);
+			setResolvedReports(fallback);
 		} finally {
 			setIsRefreshing(false);
 		}
@@ -131,10 +175,8 @@ function ResolvedReportsContent() {
 					refreshing={isRefreshing}
 					onRefresh={handleRefresh}
 					renderItem={({ item }) => (
-					<TouchableOpacity
+					<View
 						style={[styles.reportCard, { backgroundColor: colors.card }]}
-						onPress={() => handleReportPress(item.id)}
-						activeOpacity={0.7}
 					>
 						<View style={styles.cardHeader}>
 							<View style={styles.headerLeft}>
@@ -147,14 +189,14 @@ function ResolvedReportsContent() {
 							<View style={styles.detailRow}>
 								<Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
 								<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-									Reported: {item.incident_date ? new Date(item.incident_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString()} {item.incident_time ? `at ${item.incident_time}` : ''}
+									Reported: {formatDateLocal(item.incident_date) || formatDateLocal(item.created_at)} {item.incident_time ? `at ${item.incident_time}` : ''}
 								</Text>
 							</View>
 							{(item as any).resolved_at && (
 								<View style={styles.detailRow}>
 									<Ionicons name="checkmark-done-outline" size={16} color={colors.textSecondary} />
 									<Text style={[styles.detailText, { color: colors.textSecondary }]}>
-										Resolved: {new Date((item as any).resolved_at).toLocaleDateString()} at {new Date((item as any).resolved_at).toLocaleTimeString()}
+										Resolved: {formatDateLocal((item as any).resolved_at)} at {formatTimeNoSecondsFromDate((item as any).resolved_at)}
 									</Text>
 								</View>
 							)}
@@ -163,11 +205,14 @@ function ResolvedReportsContent() {
 						{/* Officers Involved */}
 						{item.officers_involved && item.officers_involved.length > 0 && (
 							<View style={styles.officersCard}>
-								<View style={styles.officersHeader}>
-									<Ionicons name="people-outline" size={16} color="#3B82F6" />
-									<Text style={styles.officersTitle}>Officers Involved</Text>
-								</View>
-								{item.officers_involved.map((officerId: string | number, index: number) => (
+								<TouchableOpacity style={styles.officersHeader} onPress={() => toggleOfficers(item.id)} activeOpacity={0.7}>
+									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+										<Ionicons name="people-outline" size={16} color="#3B82F6" />
+										<Text style={styles.officersTitle}>Officers Involved</Text>
+									</View>
+									<Ionicons name={expandedOfficers.has(item.id) ? 'chevron-up' : 'chevron-down'} size={18} color="#3B82F6" />
+								</TouchableOpacity>
+								{expandedOfficers.has(item.id) && item.officers_involved.map((officerId: string | number, index: number) => (
 									<Text key={index} style={styles.officerName}>
 										• {getOfficerName(officerId)}
 									</Text>
@@ -175,14 +220,19 @@ function ResolvedReportsContent() {
 							</View>
 						)}
 
-						{/* Resolution Notes */}
-						{(item as any).resolution_notes && (
+						{/* Police Notes */}
+						{(((item as any).police_notes ?? (item as any).resolution_notes)) && (
 							<View style={styles.resolutionCard}>
-								<View style={styles.resolutionHeader}>
-									<Ionicons name="document-text-outline" size={16} color="#059669" />
-									<Text style={styles.resolutionTitle}>Resolution Notes</Text>
-								</View>
-								<Text style={styles.resolutionText}>{(item as any).resolution_notes}</Text>
+								<TouchableOpacity style={styles.resolutionHeader} onPress={() => toggleNotes(item.id)} activeOpacity={0.7}>
+									<View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+										<Ionicons name="document-text-outline" size={16} color="#059669" />
+										<Text style={styles.resolutionTitle}>Police Notes</Text>
+									</View>
+									<Ionicons name={expandedNotes.has(item.id) ? 'chevron-up' : 'chevron-down'} size={18} color="#059669" />
+								</TouchableOpacity>
+								{expandedNotes.has(item.id) && (
+									<Text style={styles.resolutionText}>{(item as any).police_notes ?? (item as any).resolution_notes}</Text>
+								)}
 							</View>
 						)}
 
@@ -190,7 +240,7 @@ function ResolvedReportsContent() {
 							<Ionicons name="checkmark-circle" size={14} color="#059669" />
 							<Text style={styles.statusText}>{item.status}</Text>
 						</View>
-					</TouchableOpacity>
+					</View>
 				)}
 				ListEmptyComponent={
 					<View style={styles.emptyState}>
@@ -296,6 +346,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: 6,
 		marginBottom: 8,
+		justifyContent: 'space-between',
 	},
 	officersTitle: {
 		fontSize: 13,
@@ -321,6 +372,8 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: 6,
 		marginBottom: 6,
+		justifyContent: 'space-between',
+		width: '100%',
 	},
 	resolutionTitle: {
 		fontSize: 13,
