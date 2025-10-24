@@ -14,8 +14,6 @@ function ProfileScreenContent() {
   const { user, signOut } = useOfficerAuth();
   const [revealedFields, setRevealedFields] = useState<{ [key: string]: boolean }>({
     email: false,
-    phone: false,
-    officerId: false,
   });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [resolvedReportsCount, setResolvedReportsCount] = useState(0);
@@ -101,7 +99,7 @@ function ProfileScreenContent() {
     badge_number: user?.user_metadata?.badge_number || 'N/A',
     email: user?.email || 'N/A',
     // These would come from additional database queries in a real app
-    station: 'Tuguegarao City Police Station',
+  station: 'Tuguegarao City Philippine National Police Sub Station',
     department: 'Traffic Management Division',
     phone: '+63 912 345 6789',
     joined_date: 'January 15, 2020',
@@ -131,10 +129,7 @@ function ProfileScreenContent() {
           </View>
           <Text style={[styles.name, { color: colors.text }]}>{officerData.name}</Text>
           <Text style={[styles.rank, { color: colors.textSecondary }]}>{officerData.rank}</Text>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>{officerData.status}</Text>
-          </View>
+          {/* Removed status badge per request */}
         </View>
 
         {/* Stats Cards */}
@@ -180,15 +175,6 @@ function ProfileScreenContent() {
               isRevealed={revealedFields.email}
               onToggle={() => toggleFieldVisibility('email')}
             />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <BlurredInfoRow 
-              icon="call" 
-              label="Phone Number" 
-              value={officerData.phone} 
-              colors={colors}
-              isRevealed={revealedFields.phone}
-              onToggle={() => toggleFieldVisibility('phone')}
-            />
           </View>
         </View>
 
@@ -198,15 +184,6 @@ function ProfileScreenContent() {
           
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
             <InfoRow icon="calendar" label="Joined PNP" value={officerData.joined_date} colors={colors} />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <BlurredInfoRow 
-              icon="shield-checkmark" 
-              label="Officer ID" 
-              value={officerData.id} 
-              colors={colors}
-              isRevealed={revealedFields.officerId}
-              onToggle={() => toggleFieldVisibility('officerId')}
-            />
           </View>
         </View>
 
