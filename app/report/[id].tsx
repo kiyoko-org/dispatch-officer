@@ -8,9 +8,10 @@ import { downloadAudioToCache } from '@/hooks/use-audio-manager';
 import { downloadFile, isFileAlreadyDownloaded, useStoragePermission } from '@/hooks/use-storage-permission';
 import { Ionicons } from '@expo/vector-icons';
 import { getDispatchClient, useCategories, useOfficers, useReports } from 'dispatch-lib';
+import * as Location from 'expo-location';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -145,6 +146,9 @@ export default function ReportDetailsScreen() {
 	const [audioPlayerModal, setAudioPlayerModal] = useState<{ visible: boolean; uri: string; filename: string; path: string } | null>(null);
 	const [downloadedStatus, setDownloadedStatus] = useState<Set<string>>(new Set());
 	const [arrivedLoading, setArrivedLoading] = useState(false);
+	const [showArrivedModal, setShowArrivedModal] = useState(false);
+	const [checkingLocation, setCheckingLocation] = useState(false);
+	const [isAtLocation, setIsAtLocation] = useState<boolean | null>(null);
 
 	useEffect(() => {
 		let mounted = true;
@@ -453,6 +457,95 @@ export default function ReportDetailsScreen() {
 		}
 	}
 
+	async function checkIfAtIncidentLocation() {
+		if (latitude == null || longitude == null) {
+			return true; // If no coordinates, allow confirmation
+		}
+
+		setCheckingLocation(true);
+		try {
+			// Request location permission
+			const { status } = await Location.requestForegroundPermissionsAsync();
+			if (status !== 'granted') {
+				Alert.alert(
+					'Location Permission Required',
+					'Please enable location permissions to verify you are at the incident location.'
+				);
+				setIsAtLocation(false);
+				return false;
+			}
+
+			// Get current location
+			const location = await Location.getCurrentPositionAsync({
+				accuracy: Location.Accuracy.High,
+			});
+
+			const currentLat = location.coords.latitude;
+			const currentLng = location.coords.longitude;
+			const incidentLat = Number(latitude);
+			const incidentLng = Number(longitude);
+
+			try {
+				// Try to get address from current coordinates using reverse geocoding
+				const [currentAddress] = await Location.reverseGeocodeAsync({
+					latitude: currentLat,
+					longitude: currentLng,
+				});
+
+				// Get incident address for comparison
+				const incidentStreet = report.street_address?.toLowerCase().trim() || '';
+				const currentStreet = currentAddress?.street?.toLowerCase().trim() || '';
+				const currentName = currentAddress?.name?.toLowerCase().trim() || '';
+
+				console.log('Current address:', currentAddress);
+				console.log('Incident street:', incidentStreet);
+				console.log('Current street:', currentStreet);
+				console.log('Current name:', currentName);
+
+				// Check if current address matches incident address
+				const isAtAddress = 
+					(currentStreet && incidentStreet && incidentStreet.includes(currentStreet)) ||
+					(currentName && incidentStreet && incidentStreet.includes(currentName)) ||
+					(currentStreet && incidentStreet && currentStreet.includes(incidentStreet));
+
+				setIsAtLocation(isAtAddress);
+				return isAtAddress;
+			} catch (geocodeError) {
+				console.log('Geocoding not available, falling back to distance check:', geocodeError);
+				
+				// Fallback: Calculate distance in meters using Haversine formula
+				const R = 6371e3; // Earth's radius in meters
+				const φ1 = (currentLat * Math.PI) / 180;
+				const φ2 = (incidentLat * Math.PI) / 180;
+				const Δφ = ((incidentLat - currentLat) * Math.PI) / 180;
+				const Δλ = ((incidentLng - currentLng) * Math.PI) / 180;
+
+				const a =
+					Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+					Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+				const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+				const distance = R * c;
+
+				console.log(`Distance from incident: ${distance.toFixed(2)} meters`);
+
+				// Check if within 50 meters of incident location
+				const isNearby = distance <= 50;
+				setIsAtLocation(isNearby);
+				return isNearby;
+			}
+		} catch (error) {
+			console.error('Error checking location:', error);
+			Alert.alert(
+				'Location Error',
+				'Could not verify your location. Please ensure location services are enabled.'
+			);
+			setIsAtLocation(false);
+			return false;
+		} finally {
+			setCheckingLocation(false);
+		}
+	}
+
 	async function handleArrived() {
 		if (!report || arrivedLoading || isArrivalRecorded) {
 			return;
@@ -484,6 +577,7 @@ export default function ReportDetailsScreen() {
 
 			if (data?.arrived_at) {
 				setReport((prev: any) => prev ? { ...prev, arrived_at: data.arrived_at } : prev);
+				setShowArrivedModal(false);
 				showThemedAlert({
 					title: 'Arrival Recorded',
 					message: 'Arrival time has been logged for this report.',
@@ -527,11 +621,7 @@ export default function ReportDetailsScreen() {
 					<Text style={[styles.descriptionText, { color: colors.text, marginTop: 12 }]}>{report.what_happened || report.brief_description || 'No description provided'}</Text>
 				</View>
 
-				{/* Reporter ID */}
-				<View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-					<Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Report ID</Text>
-					<Text style={[styles.sectionValue, { color: colors.text }]}>{report.reporter_id || report.id}</Text>
-				</View>
+				{/* Reporter ID hidden per request */}
 
 				{/* Date & Time */}
 				<View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -720,36 +810,25 @@ export default function ReportDetailsScreen() {
 						styles.arrivedButton,
 						{
 							backgroundColor: isArrivalRecorded ? colors.success : colors.primary,
-							opacity: (arrivedLoading || isArrivalRecorded) ? 0.7 : 1,
+							opacity: isArrivalRecorded ? 0.7 : 1,
 						},
 					]}
-					onPress={handleArrived}
-					disabled={arrivedLoading || isArrivalRecorded}
+					onPress={async () => {
+						setShowArrivedModal(true);
+						await checkIfAtIncidentLocation();
+					}}
+					disabled={isArrivalRecorded}
 				>
-					{arrivedLoading ? (
-						<ActivityIndicator size="small" color="#FFFFFF" />
-					) : (
-						<View style={styles.arrivedButtonContent}>
-							{isArrivalRecorded && (
-								<Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-							)}
-							<Text style={styles.arrivedButtonText}>Arrived</Text>
-						</View>
-					)}
+					<View style={styles.arrivedButtonContent}
+>
+						{isArrivalRecorded && (
+							<Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+						)}
+						<Text style={styles.arrivedButtonText}>Arrived</Text>
+					</View>
 				</TouchableOpacity>
 
-				{/* Resolution Date */}
-				{report.resolved_at && (
-					<View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-						<Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Resolved Date</Text>
-						<View style={styles.infoRow}>
-							<Ionicons name="checkmark-circle-outline" size={18} color={colors.textSecondary} />
-							<Text style={[styles.infoText, { color: colors.text }]}>
-								{new Date(report.resolved_at).toLocaleDateString()} at {new Date(report.resolved_at).toLocaleTimeString()}
-							</Text>
-						</View>
-					</View>
-				)}
+				{/* Resolved Date hidden per request */}
 
 				{/* Attachments */}
 				{report.attachments && report.attachments.length > 0 && (
@@ -884,6 +963,69 @@ export default function ReportDetailsScreen() {
 					backdropColor={activeTheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.35)'}
 				/>
 			)}
+
+			{/* Arrived Confirmation Modal */}
+			<Modal
+				visible={showArrivedModal}
+				transparent
+				animationType="fade"
+				onRequestClose={() => {
+					setShowArrivedModal(false);
+					setIsAtLocation(null);
+				}}
+			>
+				<View style={styles.modalOverlay}>
+					<View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+						<View style={styles.modalHeader}>
+							{checkingLocation ? (
+								<ActivityIndicator size={48} color={colors.primary} />
+							) : isAtLocation === false ? (
+								<Ionicons name="close-circle" size={48} color="#DC2626" />
+							) : isAtLocation === true ? (
+								<Ionicons name="checkmark-circle" size={48} color="#10B981" />
+							) : (
+								<Ionicons name="location" size={48} color={colors.primary} />
+							)}
+						</View>
+						
+					<Text style={[styles.modalTitle, { color: colors.text }]}>
+						{checkingLocation ? 'Checking Location...' : isAtLocation === false ? 'Location Warning' : 'Confirm Arrival'}
+					</Text>
+					<Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+						{checkingLocation
+							? 'Verifying your location...'
+							: isAtLocation === false
+							? 'It seems you are not at the exact incident address. Are you sure you want to confirm your arrival?'
+							: 'Please make sure you are at the incident area before confirming your arrival.'}
+					</Text>
+
+					<View style={styles.modalButtons}>
+							<TouchableOpacity
+								style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+								onPress={() => {
+									setShowArrivedModal(false);
+									setIsAtLocation(null);
+								}}
+								disabled={arrivedLoading || checkingLocation}
+							>
+								<Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+							</TouchableOpacity>
+							
+							<TouchableOpacity
+								style={[styles.modalButton, styles.confirmButton, { backgroundColor: colors.primary }]}
+								onPress={handleArrived}
+								disabled={arrivedLoading || checkingLocation}
+							>
+								{arrivedLoading ? (
+									<ActivityIndicator size="small" color="#FFFFFF" />
+								) : (
+									<Text style={styles.confirmButtonText}>Confirm Arrival</Text>
+								)}
+							</TouchableOpacity>
+						</View>
+					</View>
+				</View>
+			</Modal>
 		</SafeAreaView>
 	);
 }
@@ -1198,6 +1340,63 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 	},
 	backButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#FFFFFF',
+	},
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+	},
+	modalContent: {
+		borderRadius: 16,
+		padding: 24,
+		width: '100%',
+		maxWidth: 400,
+		alignItems: 'center',
+	},
+	modalHeader: {
+		marginBottom: 16,
+	},
+	modalTitle: {
+		fontSize: 24,
+		fontWeight: '700',
+		marginBottom: 8,
+		textAlign: 'center',
+	},
+	modalMessage: {
+		fontSize: 16,
+		textAlign: 'center',
+		marginBottom: 24,
+		lineHeight: 22,
+	},
+	modalButtons: {
+		flexDirection: 'row',
+		gap: 12,
+		width: '100%',
+	},
+	modalButton: {
+		flex: 1,
+		paddingVertical: 14,
+		paddingHorizontal: 20,
+		borderRadius: 10,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	cancelButton: {
+		borderWidth: 1,
+	},
+	cancelButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
+	},
+	confirmButton: {
+		// backgroundColor set inline
+	},
+	confirmButtonText: {
 		fontSize: 16,
 		fontWeight: '600',
 		color: '#FFFFFF',

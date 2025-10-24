@@ -1,15 +1,16 @@
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Network from 'expo-network';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, TextInput as RNTextInput, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 export default function LoginScreen() {
     const router = useRouter();
-    const { signIn, isLoading, error } = useOfficerAuth();
+    const { signIn, isLoading, error, signOut } = useOfficerAuth();
     const { colors, activeTheme } = useTheme();
     const [badgeNumber, setBadgeNumber] = useState('');
     const [password, setPassword] = useState('');
@@ -17,6 +18,9 @@ export default function LoginScreen() {
     const [localError, setLocalError] = useState<string | null>(null);
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [showForgotModal, setShowForgotModal] = useState(false);
+    const [showAlreadySignedInModal, setShowAlreadySignedInModal] = useState(false);
+    const lastOfflineAtRef = useRef<number | null>(null);
+    const lastTriedBadgeRef = useRef<string>('');
 
     async function handleSignIn() {
         if (!badgeNumber || !password) {
@@ -28,16 +32,63 @@ export default function LoginScreen() {
         setIsLoggingIn(true);
         
         try {
+            // Save current attempt details
+            lastTriedBadgeRef.current = badgeNumber;
+
+            // Pre-check connectivity to avoid partial sessions and misleading errors
+            const networkState = await Network.getNetworkStateAsync();
+            if (!networkState.isInternetReachable) {
+                lastOfflineAtRef.current = Date.now();
+                setLocalError('Failed to login. Please check your internet connection and try again later');
+                return;
+            }
+
+            // Clear any existing session state before attempting login (clean slate)
+            await signOut();
+
             const result = await signIn(badgeNumber, password);
             
             if (result.error) {
-                setLocalError(result.error);
+                const errorLower = result.error.toLowerCase();
+
+                // Specific case: backend reports this account session grant issue
+                if (errorLower.includes('database error granting user')) {
+                    setShowAlreadySignedInModal(true);
+                    return;
+                }
+
+                // If we were recently offline, treat false negatives as network recovery issues
+                const wasRecentlyOffline = !!(lastOfflineAtRef.current && (Date.now() - lastOfflineAtRef.current < 60000));
+                if (wasRecentlyOffline && (errorLower.includes('officer not found') || errorLower.includes('not found'))) {
+                    setLocalError('Failed to login. Please check your internet connection and try again later');
+                    return;
+                }
+
+                // Network-related errors
+                if (
+                    errorLower.includes('network') ||
+                    errorLower.includes('fetch') ||
+                    errorLower.includes('connection') ||
+                    errorLower.includes('timeout') ||
+                    errorLower.includes('refused') ||
+                    errorLower.includes('unreachable')
+                ) {
+                    lastOfflineAtRef.current = Date.now();
+                    setLocalError('Failed to login. Please check your internet connection and try again later');
+                } else if (errorLower.includes('database error')) {
+                    // Database/session grant hiccups after connectivity blips
+                    setLocalError('Failed to login. Please check your internet connection and try again later');
+                } else {
+                    // Show the actual error (e.g., truly invalid credentials)
+                    setLocalError(result.error);
+                }
             } else {
                 // Successful login - navigation will be handled by auth state changes
+                lastOfflineAtRef.current = null;
                 router.replace('/');
             }
         } catch (error) {
-            setLocalError('An unexpected error occurred. Please try again.');
+            setLocalError('Failed to login. Please check your internet connection and try again later');
             console.error('Login error:', error);
         } finally {
             setIsLoggingIn(false);
@@ -196,6 +247,58 @@ export default function LoginScreen() {
 
                         <TouchableOpacity
                             onPress={() => setShowForgotModal(false)}
+                            style={{
+                                marginTop: 16,
+                                paddingVertical: 12,
+                                paddingHorizontal: 24,
+                                borderRadius: 10,
+                                backgroundColor: colors.primary,
+                            }}
+                        >
+                            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* Already Signed In Modal */}
+            <Modal
+                visible={showAlreadySignedInModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowAlreadySignedInModal(false)}
+            >
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setShowAlreadySignedInModal(false)}
+                    style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 20,
+                    }}
+                >
+                    <View
+                        style={{
+                            width: '100%',
+                            maxWidth: 400,
+                            borderRadius: 16,
+                            padding: 24,
+                            alignItems: 'center',
+                            backgroundColor: colors.card,
+                        }}
+                    >
+                        <Ionicons name="alert-circle-outline" size={48} color="#F59E0B" />
+                        <Text style={{ fontSize: 20, fontWeight: '700', marginTop: 12, color: colors.text, textAlign: 'center' }}>
+                            Account Already Signed In
+                        </Text>
+                        <Text style={{ fontSize: 16, marginTop: 8, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 }}>
+                            This account is already signed in on another device. If this wasn't you, please contact your department's admin.
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={() => setShowAlreadySignedInModal(false)}
                             style={{
                                 marginTop: 16,
                                 paddingVertical: 12,

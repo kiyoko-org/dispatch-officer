@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDispatchClient, useNotifications } from 'dispatch-lib';
+import * as Network from 'expo-network';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Modal, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -191,6 +192,48 @@ function NotificationsContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resolvedInfo, setResolvedInfo] = useState<{ visible: boolean; reportId?: string; resolvedAt?: string }>({ visible: false });
   const [notAssignedInfo, setNotAssignedInfo] = useState<{ visible: boolean; reportId?: string }>({ visible: false });
+  const [netError, setNetError] = useState<string | null>(null);
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Network-aware loading guard: if stuck loading, show friendly message
+  useEffect(() => {
+    let mounted = true;
+    async function checkNet() {
+      try {
+        const state = await Network.getNetworkStateAsync();
+        if (!mounted) return;
+        if (!state.isInternetReachable) {
+          setNetError('Unable to load. Please check your internet and try again later');
+        } else {
+          setNetError(null);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (loading && !error) {
+      checkNet();
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = setTimeout(() => {
+        setNetError('Unable to load. Please check your internet and try again later');
+      }, 12000);
+    } else {
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+      // clear net error when not loading and no explicit hook error
+      if (!loading && !error) setNetError(null);
+    }
+    return () => {
+      mounted = false;
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    };
+  }, [loading, error]);
+
+  // handleRetry declared after handleRefresh to avoid temporal dead zone
   const readNotificationsLoaded = useRef(false);
   const tappedNotificationsLoaded = useRef(false);
 
@@ -488,6 +531,20 @@ function NotificationsContent() {
     }
   }, []);
 
+  const handleRetry = useCallback(async () => {
+    setNetError(null);
+    try {
+      const state = await Network.getNetworkStateAsync();
+      if (!state.isInternetReachable) {
+        setNetError('Unable to load. Please check your internet and try again later');
+      } else {
+        await handleRefresh();
+      }
+    } catch {
+      setNetError('Unable to load. Please check your internet and try again later');
+    }
+  }, [handleRefresh]);
+
   const renderNotification = ({ item }: { item: typeof notifications[0] }) => {
     const type = getNotificationType(item.title, item.body);
     
@@ -525,7 +582,20 @@ function NotificationsContent() {
       />
 
       {/* Notifications List */}
-      {loading ? (
+      {netError ? (
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Unable to Load</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary, marginTop: 8 }]}>{netError}</Text>
+          <TouchableOpacity
+            style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            onPress={handleRetry}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>

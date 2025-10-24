@@ -6,18 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { getDispatchClient, useOfficers } from 'dispatch-lib';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function ProfileScreenContent() {
   const { colors } = useTheme();
-  const { user, signOut } = useOfficerAuth();
+  const { user } = useOfficerAuth();
   const [revealedFields, setRevealedFields] = useState<{ [key: string]: boolean }>({
     email: false,
-    phone: false,
-    officerId: false,
   });
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [resolvedReportsCount, setResolvedReportsCount] = useState(0);
   const [totalReportsCount, setTotalReportsCount] = useState(0);
 
@@ -85,12 +82,6 @@ function ProfileScreenContent() {
     setRevealedFields(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
-  async function confirmLogout() {
-    setShowLogoutModal(false);
-    await signOut();
-    router.replace('/login');
-  }
-
   // Get user data from authentication context
   const officerData = {
     id: user?.id || 'N/A',
@@ -101,7 +92,7 @@ function ProfileScreenContent() {
     badge_number: user?.user_metadata?.badge_number || 'N/A',
     email: user?.email || 'N/A',
     // These would come from additional database queries in a real app
-    station: 'Tuguegarao City Police Station',
+  station: 'Tuguegarao City Philippine National Police Sub Station',
     department: 'Traffic Management Division',
     phone: '+63 912 345 6789',
     joined_date: 'January 15, 2020',
@@ -131,10 +122,7 @@ function ProfileScreenContent() {
           </View>
           <Text style={[styles.name, { color: colors.text }]}>{officerData.name}</Text>
           <Text style={[styles.rank, { color: colors.textSecondary }]}>{officerData.rank}</Text>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>{officerData.status}</Text>
-          </View>
+          {/* Removed status badge per request */}
         </View>
 
         {/* Stats Cards */}
@@ -180,15 +168,6 @@ function ProfileScreenContent() {
               isRevealed={revealedFields.email}
               onToggle={() => toggleFieldVisibility('email')}
             />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <BlurredInfoRow 
-              icon="call" 
-              label="Phone Number" 
-              value={officerData.phone} 
-              colors={colors}
-              isRevealed={revealedFields.phone}
-              onToggle={() => toggleFieldVisibility('phone')}
-            />
           </View>
         </View>
 
@@ -198,67 +177,11 @@ function ProfileScreenContent() {
           
           <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
             <InfoRow icon="calendar" label="Joined PNP" value={officerData.joined_date} colors={colors} />
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <BlurredInfoRow 
-              icon="shield-checkmark" 
-              label="Officer ID" 
-              value={officerData.id} 
-              colors={colors}
-              isRevealed={revealedFields.officerId}
-              onToggle={() => toggleFieldVisibility('officerId')}
-            />
           </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.logoutButton]}
-            onPress={() => setShowLogoutModal(true)}>
-            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-            <Text style={[styles.actionButtonText, styles.logoutButtonText]}>Log Out</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
-
-      {/* Logout Confirmation Modal */}
-      <Modal
-        visible={showLogoutModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="log-out-outline" size={48} color="#DC2626" />
-            </View>
-            
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
-            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-              Are you sure you want to logout?
-            </Text>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => setShowLogoutModal(false)}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={confirmLogout}
-              >
-                <Text style={styles.confirmButtonText}>Logout</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

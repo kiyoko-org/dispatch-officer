@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "dispatch-officer",
+  "name": "Dispatch: Officer",
     "slug": "dispatch-officer",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDisplayName": "Dispatch: Officer"
+      }
     },
     "android": {
       "adaptiveIcon": {
