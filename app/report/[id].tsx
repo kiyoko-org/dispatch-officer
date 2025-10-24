@@ -714,7 +714,10 @@ useEffect(() => {
             <TouchableOpacity
               style={[
                 styles.arrivedButton,
-                { backgroundColor: colors.success, opacity: (arrivedLoading || isArrivalRecorded) ? 0.6 : 1 },
+                {
+                  backgroundColor: isArrivalRecorded ? colors.success : colors.primary,
+                  opacity: (arrivedLoading || isArrivalRecorded) ? 0.7 : 1,
+                },
               ]}
               onPress={handleArrived}
               disabled={arrivedLoading || isArrivalRecorded}
@@ -722,7 +725,12 @@ useEffect(() => {
               {arrivedLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.arrivedButtonText}>Arrived</Text>
+                <View style={styles.arrivedButtonContent}>
+                  {isArrivalRecorded && (
+                    <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.arrivedButtonText}>Arrived</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -1160,6 +1168,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  arrivedButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   arrivedButtonText: {
     color: '#FFFFFF',
