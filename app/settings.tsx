@@ -1,13 +1,22 @@
 import { NavBar } from '@/components/nav-bar';
+import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const { themeMode, activeTheme, setThemeMode, isAmoledMode, setIsAmoledMode, colors } = useTheme();
+  const { signOut } = useOfficerAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  async function confirmLogout() {
+    setShowLogoutModal(false);
+    await signOut();
+    router.replace('/login');
+  }
 
   const ThemeOption = ({ 
     label, 
@@ -126,25 +135,60 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Notifications Section */}
+        {/* Account Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
           
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <SettingRow
-              icon="notifications-outline"
-              title="Push Notifications"
-              description="Receive alerts for new incidents"
-              colors={colors}
-              rightComponent={<Switch value={true} onValueChange={() => {}} />}
-            />
+            <TouchableOpacity
+              style={[styles.actionButton, styles.logoutButton]}
+              onPress={() => setShowLogoutModal(true)}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+              <Text style={[styles.actionButtonText, styles.logoutButtonText]}>Log Out</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        
-
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="log-out-outline" size={48} color="#DC2626" />
+            </View>
+            
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              Are you sure you want to logout?
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.confirmButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -294,5 +338,90 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    borderColor: '#DC2626',
+    backgroundColor: '#DC2626',
+    borderWidth: 0,
+  },
+  logoutButtonText: {
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    backgroundColor: '#DC2626',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

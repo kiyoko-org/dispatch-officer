@@ -377,9 +377,6 @@ function IndexContent() {
 						<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); router.push('/settings'); }} colors={colors} />
 						<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
 					</View>
-					<View style={[styles.menuFooter, { borderTopColor: colors.border }]}>
-						<MenuItem icon="log-out-outline" label="Logout" destructive onPress={handleLogoutPress} colors={colors} />
-					</View>
 				</SafeAreaView>
 			</Animated.View>
 

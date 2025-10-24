@@ -6,16 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { getDispatchClient, useOfficers } from 'dispatch-lib';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function ProfileScreenContent() {
   const { colors } = useTheme();
-  const { user, signOut } = useOfficerAuth();
+  const { user } = useOfficerAuth();
   const [revealedFields, setRevealedFields] = useState<{ [key: string]: boolean }>({
     email: false,
   });
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [resolvedReportsCount, setResolvedReportsCount] = useState(0);
   const [totalReportsCount, setTotalReportsCount] = useState(0);
 
@@ -82,12 +81,6 @@ function ProfileScreenContent() {
   const toggleFieldVisibility = (field: string) => {
     setRevealedFields(prev => ({ ...prev, [field]: !prev[field] }));
   };
-
-  async function confirmLogout() {
-    setShowLogoutModal(false);
-    await signOut();
-    router.replace('/login');
-  }
 
   // Get user data from authentication context
   const officerData = {
@@ -187,55 +180,8 @@ function ProfileScreenContent() {
           </View>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.logoutButton]}
-            onPress={() => setShowLogoutModal(true)}>
-            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-            <Text style={[styles.actionButtonText, styles.logoutButtonText]}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={{ height: 40 }} />
       </ScrollView>
-
-      {/* Logout Confirmation Modal */}
-      <Modal
-        visible={showLogoutModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="log-out-outline" size={48} color="#DC2626" />
-            </View>
-            
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
-            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-              Are you sure you want to logout?
-            </Text>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
-                onPress={() => setShowLogoutModal(false)}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={confirmLogout}
-              >
-                <Text style={styles.confirmButtonText}>Logout</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
