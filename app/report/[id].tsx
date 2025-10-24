@@ -527,11 +527,7 @@ export default function ReportDetailsScreen() {
 					<Text style={[styles.descriptionText, { color: colors.text, marginTop: 12 }]}>{report.what_happened || report.brief_description || 'No description provided'}</Text>
 				</View>
 
-				{/* Reporter ID */}
-				<View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-					<Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Report ID</Text>
-					<Text style={[styles.sectionValue, { color: colors.text }]}>{report.reporter_id || report.id}</Text>
-				</View>
+				{/* Reporter ID hidden per request */}
 
 				{/* Date & Time */}
 				<View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -738,18 +734,7 @@ export default function ReportDetailsScreen() {
 					)}
 				</TouchableOpacity>
 
-				{/* Resolution Date */}
-				{report.resolved_at && (
-					<View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-						<Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Resolved Date</Text>
-						<View style={styles.infoRow}>
-							<Ionicons name="checkmark-circle-outline" size={18} color={colors.textSecondary} />
-							<Text style={[styles.infoText, { color: colors.text }]}>
-								{new Date(report.resolved_at).toLocaleDateString()} at {new Date(report.resolved_at).toLocaleTimeString()}
-							</Text>
-						</View>
-					</View>
-				)}
+				{/* Resolved Date hidden per request */}
 
 				{/* Attachments */}
 				{report.attachments && report.attachments.length > 0 && (
