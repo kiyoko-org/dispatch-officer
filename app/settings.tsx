@@ -1,10 +1,9 @@
 import { NavBar } from '@/components/nav-bar';
 import { useTheme } from '@/contexts/theme-context';
-import { NotificationService } from '@/services/notification-service';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
@@ -139,9 +138,6 @@ export default function SettingsScreen() {
               colors={colors}
               rightComponent={<Switch value={true} onValueChange={() => {}} />}
             />
-            {/* Push Debug Tools */}
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <PushDebug colors={colors} />
           </View>
         </View>
 
@@ -198,79 +194,7 @@ function SettingRow({
   return content;
 }
 
-function PushDebug({ colors }: { colors: any }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function ensureToken() {
-    setLoading(true);
-    try {
-      let t = NotificationService.getDevicePushToken();
-      if (!t) {
-        t = await NotificationService.registerForPushNotifications();
-      }
-      setToken(t || null);
-      const lastErr = NotificationService.getLastError();
-      setError(lastErr);
-      if (!t) {
-        const msg = lastErr || 'Make sure google-services.json is added and the app was rebuilt.';
-        Alert.alert('No device token yet', msg);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function shareToken() {
-    const t = token || NotificationService.getDevicePushToken();
-    if (!t) {
-      Alert.alert('No token', 'Tap "Get device token" first.');
-      return;
-    }
-    await Share.share({ message: t });
-  }
-
-  return (
-    <View>
-      <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-        Push Debug: get your device token to test FCM from Firebase Console.
-      </Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TouchableOpacity
-          onPress={ensureToken}
-          style={{ backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 }}
-          disabled={loading}
-        >
-          <Text style={{ color: '#fff', fontWeight: '600' }}>{loading ? 'Loading…' : 'Get device token'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={shareToken}
-          style={{ backgroundColor: colors.card, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
-        >
-          <Text style={{ color: colors.text }}>Share token</Text>
-        </TouchableOpacity>
-      </View>
-      {token ? (
-        <Text style={{ color: colors.textSecondary, marginTop: 8 }} numberOfLines={3}>
-          Token: {token}
-        </Text>
-      ) : null}
-      {error ? (
-        <Text style={{ color: '#DC2626', marginTop: 6 }} numberOfLines={3}>
-          Last error: {error}
-        </Text>
-      ) : null}
-      <View style={{ height: 8 }} />
-      <TouchableOpacity
-        onPress={() => NotificationService.scheduleNewReportNotification({ id: 0, title: 'Local test', description: 'If you see this while app is open, local works.' })}
-        style={{ backgroundColor: colors.card, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
-      >
-        <Text style={{ color: colors.text }}>Send local test notification</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
+// Removed PushDebug (token/testing) controls per request
 
 const styles = StyleSheet.create({
   container: {
