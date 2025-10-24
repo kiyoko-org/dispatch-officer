@@ -2,6 +2,7 @@ import { AudioPlayerModal } from '@/components/audio-player-modal';
 import { ImagePreviewModal } from '@/components/image-preview-modal';
 import { LocationMapModal } from '@/components/location-map-modal';
 import { NavBar } from '@/components/nav-bar';
+import { showThemedAlert } from '@/components/ui/themed-alert';
 import { useTheme } from '@/contexts/theme-context';
 import { downloadAudioToCache } from '@/hooks/use-audio-manager';
 import { downloadFile, isFileAlreadyDownloaded, useStoragePermission } from '@/hooks/use-storage-permission';
@@ -143,6 +144,7 @@ export default function ReportDetailsScreen() {
   const [cachedAudioFiles, setCachedAudioFiles] = useState<{ [key: string]: string }>({});
   const [audioPlayerModal, setAudioPlayerModal] = useState<{ visible: boolean; uri: string; filename: string; path: string } | null>(null);
   const [downloadedStatus, setDownloadedStatus] = useState<Set<string>>(new Set());
+  const [arrivedLoading, setArrivedLoading] = useState(false);
 
 useEffect(() => {
     let mounted = true;
@@ -249,6 +251,7 @@ useEffect(() => {
 
   const latitude = report.latitude ?? report.coordinates?.latitude;
   const longitude = report.longitude ?? report.coordinates?.longitude;
+  const isArrivalRecorded = !!report.arrived_at;
 
   async function openDrivingNavigation(lat: number, lng: number, label?: string) {
     const encodedLabel = encodeURIComponent(label || 'Destination');
@@ -447,6 +450,55 @@ useEffect(() => {
         next.delete(attachmentPath);
         return next;
       });
+    }
+  }
+
+  async function handleArrived() {
+    if (!report || arrivedLoading || isArrivalRecorded) {
+      return;
+    }
+
+    const reportId = Number(report.id ?? numericId);
+    if (!Number.isFinite(reportId)) {
+      showThemedAlert({
+        title: 'Arrival Failed',
+        message: 'Invalid report id.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setArrivedLoading(true);
+    try {
+      const dispatchClient = getDispatchClient();
+      const { data, error } = await dispatchClient.officerArrived(reportId);
+
+      if (error) {
+        showThemedAlert({
+          title: 'Arrival Failed',
+          message: error,
+          variant: 'error',
+        });
+        return;
+      }
+
+      if (data?.arrived_at) {
+        setReport((prev: any) => prev ? { ...prev, arrived_at: data.arrived_at } : prev);
+        showThemedAlert({
+          title: 'Arrival Recorded',
+          message: 'Arrival time has been logged for this report.',
+          variant: 'success',
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      showThemedAlert({
+        title: 'Arrival Failed',
+        message,
+        variant: 'error',
+      });
+    } finally {
+      setArrivedLoading(false);
     }
   }
 
@@ -659,6 +711,20 @@ useEffect(() => {
                 {getOfficerName(officerId)}
               </Text>
             ))}
+            <TouchableOpacity
+              style={[
+                styles.arrivedButton,
+                { backgroundColor: colors.success, opacity: (arrivedLoading || isArrivalRecorded) ? 0.6 : 1 },
+              ]}
+              onPress={handleArrived}
+              disabled={arrivedLoading || isArrivalRecorded}
+            >
+              {arrivedLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.arrivedButtonText}>Arrived</Text>
+              )}
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1088,6 +1154,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  arrivedButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrivedButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   errorState: {
     flex: 1,
     alignItems: 'center',
@@ -1110,4 +1188,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
