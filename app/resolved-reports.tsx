@@ -19,6 +19,7 @@ function ResolvedReportsContent() {
 	const [resolvedReports, setResolvedReports] = useState<any[]>([]);
 	const [expandedOfficers, setExpandedOfficers] = useState<Set<number>>(new Set());
 	const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
+	const [fetchError, setFetchError] = useState<string | null>(null);
 
 	// Get officers list for name lookup
 	const { officers } = officersHook;
@@ -93,26 +94,24 @@ function ResolvedReportsContent() {
 				.eq('status', 'resolved')
 				.order('resolved_at', { ascending: false });
 
-			if (error || !data) {
-				console.error('Fallback fetch error:', error);
-				return [];
-			}
-
-			// If officers_involved is an array, filter to this officer; otherwise include all
-			return (data as any[]).filter((r) => {
-				const list = (r as any).officers_involved;
-				if (Array.isArray(list)) {
-					return list.includes(officerId) || list.includes(Number(officerId));
-				}
-				return true;
-			});
-		} catch (e) {
-			console.error('Fallback fetch unexpected error:', e);
-			return [];
+		if (error || !data) {
+			console.error('Fallback fetch error:', error);
+			throw error || new Error('No data returned');
 		}
-	}
 
-	useEffect(() => {
+		// If officers_involved is an array, filter to this officer; otherwise include all
+		return (data as any[]).filter((r) => {
+			const list = (r as any).officers_involved;
+			if (Array.isArray(list)) {
+				return list.includes(officerId) || list.includes(Number(officerId));
+			}
+			return true;
+		});
+	} catch (e) {
+		console.error('Fallback fetch unexpected error:', e);
+		throw e;
+	}
+	}	useEffect(() => {
 		async function fetchResolvedReports() {
 			if (!user?.id) {
 				setResolvedReports([]);
@@ -125,6 +124,10 @@ function ResolvedReportsContent() {
 				// Fallback-only: avoid RPC 42804 error logs
 				const fallback = await fetchResolvedReportsFallback(user.id);
 				setResolvedReports(fallback);
+				setFetchError(null);
+			} catch (e) {
+				console.error('Error fetching resolved reports:', e);
+				setFetchError('Unable to load. Please check your internet and try again later');
 			} finally {
 				setLoading(false);
 			}
@@ -141,8 +144,28 @@ function ResolvedReportsContent() {
 		try {
 			const fallback = await fetchResolvedReportsFallback(user.id);
 			setResolvedReports(fallback);
+			setFetchError(null);
+		} catch (e) {
+			console.error('Error refreshing resolved reports:', e);
+			setFetchError('Unable to load. Please check your internet and try again later');
 		} finally {
 			setIsRefreshing(false);
+		}
+	}
+
+	async function retryFetch() {
+		if (!user?.id) return;
+		setFetchError(null);
+		setLoading(true);
+		try {
+			const fallback = await fetchResolvedReportsFallback(user.id);
+			setResolvedReports(fallback);
+			setFetchError(null);
+		} catch (e) {
+			console.error('Error retrying resolved reports fetch:', e);
+			setFetchError('Unable to load. Please check your internet and try again later');
+		} finally {
+			setLoading(false);
 		}
 	}
 
@@ -162,7 +185,24 @@ function ResolvedReportsContent() {
 			/>
 
 			{/* Reports List */}
-			{loading ? (
+			{fetchError ? (
+				<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+					<View style={{ alignItems: 'center' }}>
+						<Ionicons name="alert-circle-outline" size={64} color={colors.primary} style={{ marginBottom: 16 }} />
+						<Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load</Text>
+						<Text style={[styles.errorMessage, { color: colors.textSecondary, marginVertical: 16 }]}>
+							{fetchError}
+						</Text>
+						<TouchableOpacity
+							style={[styles.retryButton, { backgroundColor: colors.primary }]}
+							onPress={retryFetch}
+						>
+							<Ionicons name="refresh-outline" size={18} color="white" />
+							<Text style={styles.retryButtonText}>Try Again</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			) : loading ? (
 				<View style={styles.loadingContainer}>
 					<ActivityIndicator size="large" color={colors.primary} />
 					<Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading resolved reports...</Text>
@@ -425,5 +465,30 @@ const styles = StyleSheet.create({
 	loadingText: {
 		fontSize: 16,
 		marginTop: 12,
+	},
+	errorTitle: {
+		fontSize: 24,
+		fontWeight: '700',
+		marginBottom: 8,
+		textAlign: 'center',
+	},
+	errorMessage: {
+		fontSize: 16,
+		textAlign: 'center',
+		lineHeight: 22,
+	},
+	retryButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		paddingVertical: 12,
+		paddingHorizontal: 24,
+		borderRadius: 10,
+	},
+	retryButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#FFFFFF',
 	},
 });

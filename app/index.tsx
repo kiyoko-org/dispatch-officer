@@ -106,6 +106,7 @@ function IndexContent() {
 
 	// Track assigned report id for current officer without using useOfficers
 	const [assignedReportId, setAssignedReportId] = useState<number | null | undefined>(undefined);
+	const [assignmentFetchError, setAssignmentFetchError] = useState<string | null>(null);
 	const previousAssignedReportId = useRef<number | null | undefined>(assignedReportId);
 
 	useEffect(() => {
@@ -123,12 +124,19 @@ function IndexContent() {
 					.single();
 				if (error) {
 					console.error('Error fetching officer assigned_report_id:', error);
+					if (isMounted) {
+						setAssignmentFetchError('Unable to load. Please check your internet and try again later');
+					}
 				} else if (isMounted) {
 					setAssignedReportId((data as any)?.assigned_report_id ?? null);
+					setAssignmentFetchError(null);
 					console.log('Initial assigned_report_id:', (data as any)?.assigned_report_id ?? null);
 				}
 			} catch (e) {
 				console.error('Error initial officer fetch:', e);
+				if (isMounted) {
+					setAssignmentFetchError('Unable to load. Please check your internet and try again later');
+				}
 			}
 
 			// Realtime subscribe to this officer row only
@@ -252,6 +260,30 @@ function IndexContent() {
 		router.replace('/login');
 	}
 
+	async function retryAssignmentFetch() {
+		if (!user?.id) return;
+		setAssignmentFetchError(null);
+		const client = getDispatchClient();
+		try {
+			const { data, error } = await client.supabaseClient
+				.from('officers')
+				.select('assigned_report_id')
+				.eq('id', user.id)
+				.single();
+			if (error) {
+				console.error('Error fetching officer assigned_report_id (retry):', error);
+				setAssignmentFetchError('Unable to load. Please check your internet and try again later');
+			} else {
+				setAssignedReportId((data as any)?.assigned_report_id ?? null);
+				setAssignmentFetchError(null);
+				console.log('Retry assigned_report_id:', (data as any)?.assigned_report_id ?? null);
+			}
+		} catch (e) {
+			console.error('Error retrying officer fetch:', e);
+			setAssignmentFetchError('Unable to load. Please check your internet and try again later');
+		}
+	}
+
 	const listData = useMemo(() => {
 		// Filter out resolved reports
 		if (assignedReport && assignedReport.status !== 'resolved') {
@@ -292,7 +324,24 @@ function IndexContent() {
 			/>
 			
 			{/* Reports List */}
-			{isFetching ? (
+			{assignmentFetchError ? (
+				<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+					<View style={{ alignItems: 'center' }}>
+						<Ionicons name="alert-circle-outline" size={64} color={colors.primary} style={{ marginBottom: 16 }} />
+						<Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load</Text>
+						<Text style={[styles.errorMessage, { color: colors.textSecondary, marginVertical: 16 }]}>
+							{assignmentFetchError}
+						</Text>
+						<TouchableOpacity
+							style={[styles.retryButton, { backgroundColor: colors.primary }]}
+							onPress={retryAssignmentFetch}
+						>
+							<Ionicons name="refresh-outline" size={18} color="white" />
+							<Text style={styles.retryButtonText}>Try Again</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
+			) : isFetching ? (
 				<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
 					<ActivityIndicator size="large" color={colors.primary} />
 					<Text style={{ marginTop: 12, color: colors.textSecondary }}>Loading assigned report…</Text>
@@ -607,6 +656,31 @@ const styles = StyleSheet.create({
 		backgroundColor: '#DC2626',
 	},
 	confirmButtonText: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#FFFFFF',
+	},
+	errorTitle: {
+		fontSize: 24,
+		fontWeight: '700',
+		marginBottom: 8,
+		textAlign: 'center',
+	},
+	errorMessage: {
+		fontSize: 16,
+		textAlign: 'center',
+		lineHeight: 22,
+	},
+	retryButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		paddingVertical: 12,
+		paddingHorizontal: 24,
+		borderRadius: 10,
+	},
+	retryButtonText: {
 		fontSize: 16,
 		fontWeight: '600',
 		color: '#FFFFFF',
