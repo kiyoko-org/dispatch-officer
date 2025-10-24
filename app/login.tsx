@@ -17,6 +17,7 @@ export default function LoginScreen() {
     const [localError, setLocalError] = useState<string | null>(null);
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [showForgotModal, setShowForgotModal] = useState(false);
+    const [showAlreadySignedInModal, setShowAlreadySignedInModal] = useState(false);
 
     async function handleSignIn() {
         if (!badgeNumber || !password) {
@@ -31,7 +32,12 @@ export default function LoginScreen() {
             const result = await signIn(badgeNumber, password);
             
             if (result.error) {
-                setLocalError(result.error);
+                // Check if error is about account already signed in
+                if (result.error.toLowerCase().includes('database error granting user')) {
+                    setShowAlreadySignedInModal(true);
+                } else {
+                    setLocalError(result.error);
+                }
             } else {
                 // Successful login - navigation will be handled by auth state changes
                 router.replace('/');
@@ -196,6 +202,58 @@ export default function LoginScreen() {
 
                         <TouchableOpacity
                             onPress={() => setShowForgotModal(false)}
+                            style={{
+                                marginTop: 16,
+                                paddingVertical: 12,
+                                paddingHorizontal: 24,
+                                borderRadius: 10,
+                                backgroundColor: colors.primary,
+                            }}
+                        >
+                            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* Already Signed In Modal */}
+            <Modal
+                visible={showAlreadySignedInModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowAlreadySignedInModal(false)}
+            >
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setShowAlreadySignedInModal(false)}
+                    style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 20,
+                    }}
+                >
+                    <View
+                        style={{
+                            width: '100%',
+                            maxWidth: 400,
+                            borderRadius: 16,
+                            padding: 24,
+                            alignItems: 'center',
+                            backgroundColor: colors.card,
+                        }}
+                    >
+                        <Ionicons name="alert-circle-outline" size={48} color="#F59E0B" />
+                        <Text style={{ fontSize: 20, fontWeight: '700', marginTop: 12, color: colors.text, textAlign: 'center' }}>
+                            Account Already Signed In
+                        </Text>
+                        <Text style={{ fontSize: 16, marginTop: 8, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 }}>
+                            This account is already signed in on another device. If this wasn't you, please contact your department's admin.
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={() => setShowAlreadySignedInModal(false)}
                             style={{
                                 marginTop: 16,
                                 paddingVertical: 12,
