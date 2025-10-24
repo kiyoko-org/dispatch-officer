@@ -485,25 +485,54 @@ export default function ReportDetailsScreen() {
 			const incidentLat = Number(latitude);
 			const incidentLng = Number(longitude);
 
-			// Calculate distance in meters using Haversine formula
-			const R = 6371e3; // Earth's radius in meters
-			const φ1 = (currentLat * Math.PI) / 180;
-			const φ2 = (incidentLat * Math.PI) / 180;
-			const Δφ = ((incidentLat - currentLat) * Math.PI) / 180;
-			const Δλ = ((incidentLng - currentLng) * Math.PI) / 180;
+			try {
+				// Try to get address from current coordinates using reverse geocoding
+				const [currentAddress] = await Location.reverseGeocodeAsync({
+					latitude: currentLat,
+					longitude: currentLng,
+				});
 
-			const a =
-				Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-				Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-			const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-			const distance = R * c;
+				// Get incident address for comparison
+				const incidentStreet = report.street_address?.toLowerCase().trim() || '';
+				const currentStreet = currentAddress?.street?.toLowerCase().trim() || '';
+				const currentName = currentAddress?.name?.toLowerCase().trim() || '';
 
-			console.log(`Distance from incident: ${distance.toFixed(2)} meters`);
+				console.log('Current address:', currentAddress);
+				console.log('Incident street:', incidentStreet);
+				console.log('Current street:', currentStreet);
+				console.log('Current name:', currentName);
 
-			// Check if within 50 meters of incident location
-			const isNearby = distance <= 50;
-			setIsAtLocation(isNearby);
-			return isNearby;
+				// Check if current address matches incident address
+				const isAtAddress = 
+					(currentStreet && incidentStreet && incidentStreet.includes(currentStreet)) ||
+					(currentName && incidentStreet && incidentStreet.includes(currentName)) ||
+					(currentStreet && incidentStreet && currentStreet.includes(incidentStreet));
+
+				setIsAtLocation(isAtAddress);
+				return isAtAddress;
+			} catch (geocodeError) {
+				console.log('Geocoding not available, falling back to distance check:', geocodeError);
+				
+				// Fallback: Calculate distance in meters using Haversine formula
+				const R = 6371e3; // Earth's radius in meters
+				const φ1 = (currentLat * Math.PI) / 180;
+				const φ2 = (incidentLat * Math.PI) / 180;
+				const Δφ = ((incidentLat - currentLat) * Math.PI) / 180;
+				const Δλ = ((incidentLng - currentLng) * Math.PI) / 180;
+
+				const a =
+					Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+					Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+				const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+				const distance = R * c;
+
+				console.log(`Distance from incident: ${distance.toFixed(2)} meters`);
+
+				// Check if within 50 meters of incident location
+				const isNearby = distance <= 50;
+				setIsAtLocation(isNearby);
+				return isNearby;
+			}
 		} catch (error) {
 			console.error('Error checking location:', error);
 			Alert.alert(
@@ -959,16 +988,18 @@ export default function ReportDetailsScreen() {
 							)}
 						</View>
 						
-						<Text style={[styles.modalTitle, { color: colors.text }]}>
-							{checkingLocation ? 'Checking Location...' : isAtLocation === false ? 'Not at Incident Location' : 'Confirm Arrival'}
-						</Text>
+					<Text style={[styles.modalTitle, { color: colors.text }]}>
+						{checkingLocation ? 'Checking Location...' : isAtLocation === false ? 'Location Warning' : 'Confirm Arrival'}
+					</Text>
 					<Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
 						{checkingLocation
 							? 'Verifying your location...'
 							: isAtLocation === false
-							? 'You must be within 50 meters of the incident location to confirm arrival.'
+							? 'It seems you are not at the exact incident address. Are you sure you want to confirm your arrival?'
 							: 'Please make sure you are at the incident area before confirming your arrival.'}
-					</Text>						<View style={styles.modalButtons}>
+					</Text>
+
+					<View style={styles.modalButtons}>
 							<TouchableOpacity
 								style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
 								onPress={() => {
@@ -981,9 +1012,9 @@ export default function ReportDetailsScreen() {
 							</TouchableOpacity>
 							
 							<TouchableOpacity
-								style={[styles.modalButton, styles.confirmButton, { backgroundColor: colors.primary, opacity: (isAtLocation === false || checkingLocation) ? 0.5 : 1 }]}
+								style={[styles.modalButton, styles.confirmButton, { backgroundColor: colors.primary }]}
 								onPress={handleArrived}
-								disabled={arrivedLoading || checkingLocation || isAtLocation === false}
+								disabled={arrivedLoading || checkingLocation}
 							>
 								{arrivedLoading ? (
 									<ActivityIndicator size="small" color="#FFFFFF" />
