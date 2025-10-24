@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: 'dispatch-officer',
+  name: 'Dispatch: Officer',
     slug: 'dispatch-officer',
     version: '1.0.0',
     orientation: 'portrait',
@@ -11,6 +11,9 @@ export default {
     ios: {
       supportsTablet: true,
 			bundleIdentifier: 'com.anonymous.dispatchofficer',
+      infoPlist: {
+        CFBundleDisplayName: 'Dispatch: Officer',
+      },
     },
     android: {
       adaptiveIcon: {
