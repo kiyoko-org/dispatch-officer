@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 // Configure how notifications should be displayed
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+  // shouldShowAlert is deprecated; use shouldShowBanner and/or shouldShowList
     shouldPlaySound: true,
     shouldSetBadge: true,
     shouldShowBanner: true,

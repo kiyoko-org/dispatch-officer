@@ -9,6 +9,8 @@ interface ThemeContextType {
   themeMode: ThemeMode;
   activeTheme: ActiveTheme;
   setThemeMode: (mode: ThemeMode) => void;
+  isAmoledMode: boolean;
+  setIsAmoledMode: (enabled: boolean) => void;
   colors: typeof lightColors;
 }
 
@@ -46,13 +48,32 @@ const darkColors = {
   navBarText: '#FFFFFF',
 };
 
+const amoledColors = {
+  primary: '#64B5F6',
+  background: '#000000',
+  card: '#0A0A0A',
+  text: '#FFFFFF',
+  textSecondary: '#B0B0B0',
+  border: '#1A1A1A',
+  error: '#EF5350',
+  success: '#66BB6A',
+  warning: '#FFA726',
+  info: '#42A5F5',
+  accent: '#FF7043',
+  shadow: '#000000',
+  statusBar: '#000000',
+  navBarText: '#FFFFFF',
+};
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = '@app_theme_mode';
+const AMOLED_STORAGE_KEY = '@app_amoled_mode';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useSystemColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [isAmoledMode, setIsAmoledModeState] = useState<boolean>(false);
   
   // Load saved theme preference on mount
   useEffect(() => {
@@ -64,6 +85,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
       if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')) {
         setThemeModeState(savedTheme as ThemeMode);
+      }
+      
+      const savedAmoled = await AsyncStorage.getItem(AMOLED_STORAGE_KEY);
+      if (savedAmoled !== null) {
+        setIsAmoledModeState(savedAmoled === 'true');
       }
     } catch (error) {
       console.error('Failed to load theme preference:', error);
@@ -79,16 +105,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setIsAmoledMode = async (enabled: boolean) => {
+    try {
+      await AsyncStorage.setItem(AMOLED_STORAGE_KEY, enabled.toString());
+      setIsAmoledModeState(enabled);
+    } catch (error) {
+      console.error('Failed to save AMOLED preference:', error);
+    }
+  };
+
   // Determine active theme based on mode
   const activeTheme: ActiveTheme = 
     themeMode === 'system' 
       ? (systemColorScheme === 'dark' ? 'dark' : 'light')
       : themeMode;
 
-  const colors = activeTheme === 'dark' ? darkColors : lightColors;
+  const colors = activeTheme === 'dark' 
+    ? (isAmoledMode ? amoledColors : darkColors) 
+    : lightColors;
 
   return (
-    <ThemeContext.Provider value={{ themeMode, activeTheme, setThemeMode, colors }}>
+    <ThemeContext.Provider value={{ themeMode, activeTheme, setThemeMode, isAmoledMode, setIsAmoledMode, colors }}>
       {children}
     </ThemeContext.Provider>
   );

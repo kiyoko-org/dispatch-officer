@@ -10,6 +10,15 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
+   **Note:** This project uses the following key dependencies:
+   - Expo SDK 54.0.17
+   - React Native 0.81.5
+   - expo-notifications 0.32.12 for push notifications
+   - @react-native-async-storage/async-storage 2.2.0 for local data persistence
+   - dispatch-lib (custom library from kiyoko-org/dispatch-lib)
+
+   Make sure to update these packages regularly to get the latest features and bug fixes.
+
 2. Choose your development method:
 
 ### Method A: Development with Expo Go
@@ -90,6 +99,38 @@ If you encounter any issues during the Android build process:
    - Enable USB debugging on your device
    - Try different USB ports or cables
    - Run `adb devices` to verify device connection
+
+5. Package version conflicts:
+   - If you encounter dependency issues after updating packages, try:
+     ```bash
+     rm -rf node_modules
+     rm package-lock.json
+     npm install
+     ```
+   - Clear Expo cache: `npx expo start -c`
+   - Rebuild native files: `npx expo prebuild -p android --clean`
+
+## Updating Packages
+
+This project is regularly updated with the latest Expo and React Native versions. Key updates include:
+
+- **Expo SDK 54.0.17** (latest stable)
+- **React Native 0.81.5** (latest compatible with Expo 54)
+- **expo-notifications 0.32.12** (improved notification handling, removed deprecated `shouldShowAlert`)
+
+When updating packages:
+
+1. Check Expo SDK compatibility: https://docs.expo.dev/versions/latest/
+2. Update Expo CLI: `npm install -g expo-cli@latest`
+3. Update dependencies: `npx expo install --fix`
+4. Test notifications thoroughly after updates
+5. Rebuild native code if major version changes occur
+
+### Recent Changes
+
+- Replaced deprecated `shouldShowAlert` with `shouldShowBanner` and `shouldShowList` in notification handlers
+- Updated AsyncStorage implementation for persistent notification state
+- Enhanced real-time notification badge system with optimistic updates
 
 ## Learn more
 
