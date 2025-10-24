@@ -187,6 +187,30 @@ function IndexContent() {
 	
 	console.log('useRealtimeReports - assignedReport:', assignedReport?.incident_title, 'loading:', isFetching);
 
+	 // Watchdog: if loading persists too long, show friendly error and allow retry
+	 const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	 useEffect(() => {
+		 if (isFetching && !assignmentFetchError) {
+			 if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+			 loadingTimerRef.current = setTimeout(() => {
+				 setAssignmentFetchError('Unable to load. Please check your internet and try again later');
+				 // temporarily disable realtime to break potential loop; user can retry
+				 setRealtimeEnabled(false);
+			 }, 12000);
+		 } else {
+			 if (loadingTimerRef.current) {
+				 clearTimeout(loadingTimerRef.current);
+				 loadingTimerRef.current = null;
+			 }
+		 }
+		 return () => {
+			 if (loadingTimerRef.current) {
+				 clearTimeout(loadingTimerRef.current);
+				 loadingTimerRef.current = null;
+			 }
+		 };
+	 }, [isFetching, assignmentFetchError]);
+
 	// Reload read notifications and assigned report when screen comes into focus
 	useFocusEffect(
 		useCallback(() => {

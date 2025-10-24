@@ -51,6 +51,12 @@ export default function LoginScreen() {
             if (result.error) {
                 const errorLower = result.error.toLowerCase();
 
+                // Specific case: backend reports this account session grant issue
+                if (errorLower.includes('database error granting user')) {
+                    setShowAlreadySignedInModal(true);
+                    return;
+                }
+
                 // If we were recently offline, treat false negatives as network recovery issues
                 const wasRecentlyOffline = !!(lastOfflineAtRef.current && (Date.now() - lastOfflineAtRef.current < 60000));
                 if (wasRecentlyOffline && (errorLower.includes('officer not found') || errorLower.includes('not found'))) {
