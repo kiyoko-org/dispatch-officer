@@ -15,7 +15,7 @@ function RootLayoutNav() {
   const { activeTheme, colors } = useTheme();
 
   return (
-    <NavigationThemeProvider value={activeTheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationThemeProvider key={activeTheme} value={activeTheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="report/[id]" options={{ headerShown: false }} />
@@ -26,7 +26,7 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.statusBar} />
+      <StatusBar style={activeTheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.statusBar} animated={false} />
       <ThemedAlertHost />
     </NavigationThemeProvider>
   );
