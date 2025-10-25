@@ -3,39 +3,14 @@ import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Easing, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const { themeMode, activeTheme, setThemeMode, isAmoledMode, setIsAmoledMode, colors } = useTheme();
   const { signOut } = useOfficerAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  // Background-only theme change animation (circular reveal behind content)
-  const window = Dimensions.get('window');
-  const maxRadius = Math.sqrt(Math.pow(window.width / 2, 2) + Math.pow(window.height / 2, 2)) + 24;
-  const [prevBgColor, setPrevBgColor] = useState(colors.background);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const reveal = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Trigger when theme background color changes
-    if (colors.background !== prevBgColor) {
-      setIsAnimating(true);
-      reveal.setValue(0);
-      Animated.timing(reveal, {
-        toValue: 1,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(() => {
-        setPrevBgColor(colors.background);
-        setIsAnimating(false);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colors.background]);
 
   async function confirmLogout() {
     setShowLogoutModal(false);
@@ -86,31 +61,8 @@ export default function SettingsScreen() {
     );
   };
 
-  const containerBg = isAnimating ? prevBgColor : colors.background;
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: containerBg }]} edges={['top', 'bottom']}>
-      {/* Animated background reveal (behind content) */}
-      {isAnimating && (
-        <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
-          <Animated.View
-            style={[
-              styles.revealCircle,
-              {
-                backgroundColor: colors.background,
-                width: maxRadius * 2,
-                height: maxRadius * 2,
-                borderRadius: maxRadius,
-                transform: [
-                  { translateX: window.width / 2 - maxRadius },
-                  { translateY: window.height / 2 - maxRadius },
-                  { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.001, 1] }) },
-                ],
-              },
-            ]}
-          />
-        </View>
-      )}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <NavBar
         title="Settings"
         leftIcon="arrow-back"
@@ -291,9 +243,6 @@ function SettingRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  revealCircle: {
-    position: 'absolute',
   },
   content: {
     flex: 1,

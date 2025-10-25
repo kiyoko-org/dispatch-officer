@@ -906,6 +906,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     marginTop: 12,
+    textAlign: 'center',
   },
   actionBar: {
     position: 'absolute',
