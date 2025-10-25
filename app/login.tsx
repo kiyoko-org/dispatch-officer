@@ -22,6 +22,24 @@ export default function LoginScreen() {
     const lastOfflineAtRef = useRef<number | null>(null);
     const lastTriedBadgeRef = useRef<string>('');
 
+    // Normalize certain backend error messages into a clearer, user-facing string
+    const displayedError: string | null = (() => {
+        if (error) {
+            try {
+                const err = String(error).toLowerCase();
+                // Map the backend "Auth session missing" (or similar variants) to a clearer message
+                if (err.includes('auth session missing') || err.includes('auth_session_missing') || err.includes('session missing')) {
+                    return 'Your account has been signed out';
+                }
+            } catch (e) {
+                // fall through and show the raw error if string conversion fails
+            }
+            return String(error);
+        }
+
+        return localError;
+    })();
+
     async function handleSignIn() {
         if (!badgeNumber || !password) {
             setLocalError('Please enter your badge number and password.');
@@ -177,10 +195,10 @@ export default function LoginScreen() {
             </View>
 
             {/* Error Display */}
-            {(error || localError) && (
+            {displayedError && (
                 <View style={{ marginTop: 16, padding: 12, backgroundColor: '#FEE2E2', borderRadius: 8 }}>
                     <Text style={{ color: '#DC2626', fontSize: 14, textAlign: 'center' }}>
-                        {error || localError}
+                        {displayedError}
                     </Text>
                 </View>
             )}
