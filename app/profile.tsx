@@ -3,9 +3,9 @@ import { NavBar } from '@/components/nav-bar';
 import { useOfficerAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getDispatchClient, useOfficers } from 'dispatch-lib';
+import { useOfficers } from 'dispatch-lib';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,68 +15,12 @@ function ProfileScreenContent() {
   const [revealedFields, setRevealedFields] = useState<{ [key: string]: boolean }>({
     email: false,
   });
-  const [resolvedReportsCount, setResolvedReportsCount] = useState(0);
-  const [totalReportsCount, setTotalReportsCount] = useState(0);
 
   // Get officer data to check for assigned reports
   const officersHook = useOfficers();
   const { officers } = officersHook;
   const currentOfficer = useMemo(() => officers.find((o: any) => o.id === user?.id), [officers, user?.id]);
   const assignedReportId = currentOfficer?.assigned_report_id as number | null | undefined;
-
-  // Fallback: direct Supabase query to avoid RPC 42804
-  async function fetchResolvedReportsCountFallback(officerId: string | number): Promise<number> {
-    try {
-      const client = getDispatchClient();
-      const { data, error } = await client.supabaseClient
-        .from('reports')
-        .select('id, officers_involved, status')
-        .eq('status', 'resolved');
-
-      if (error || !data) {
-        console.error('Resolved count fallback error:', error);
-        return 0;
-      }
-
-      const count = (data as any[]).filter((r) => {
-        const list = (r as any).officers_involved;
-        if (Array.isArray(list)) {
-          return list.includes(officerId) || list.includes(Number(officerId));
-        }
-        // If the field isn't an array, include by default (consistent with Resolved screen fallback)
-        return true;
-      }).length;
-
-      return count;
-    } catch (e) {
-      console.error('Resolved count fallback unexpected error:', e);
-      return 0;
-    }
-  }
-
-  // Fetch resolved reports count
-  useEffect(() => {
-    async function fetchResolvedReportsCount() {
-      if (!user?.id) {
-        setResolvedReportsCount(0);
-        return;
-      }
-
-      try {
-        // Use fallback-only to avoid RPC 42804 errors
-        const count = await fetchResolvedReportsCountFallback(user.id);
-        setResolvedReportsCount(count);
-        setTotalReportsCount(count + (assignedReportId ? 1 : 0));
-      } catch (error) {
-        console.error('Error fetching resolved reports count:', error);
-        setResolvedReportsCount(0);
-        setTotalReportsCount(assignedReportId ? 1 : 0);
-      }
-    }
-
-    fetchResolvedReportsCount();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, assignedReportId]);
 
   const toggleFieldVisibility = (field: string) => {
     setRevealedFields(prev => ({ ...prev, [field]: !prev[field] }));
@@ -98,8 +42,6 @@ function ProfileScreenContent() {
     joined_date: 'January 15, 2020',
     status: 'Active',
     assigned_area: 'Tuguegarao City Center',
-    total_reports: totalReportsCount,
-    resolved_reports: resolvedReportsCount,
     pending_reports: assignedReportId ? 1 : 0, // Synced with assigned report
   };
   
@@ -127,16 +69,6 @@ function ProfileScreenContent() {
 
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-            <Ionicons name="document-text" size={24} color="#3B82F6" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{officerData.total_reports}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Reports</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card }]}>
-            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-            <Text style={[styles.statNumber, { color: colors.text }]}>{officerData.resolved_reports}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Resolved</Text>
-          </View>
           <View style={[styles.statCard, { backgroundColor: colors.card }]}>
             <Ionicons name="time" size={24} color="#F59E0B" />
             <Text style={[styles.statNumber, { color: colors.text }]}>{officerData.pending_reports}</Text>

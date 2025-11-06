@@ -448,7 +448,6 @@ function IndexContent() {
 					<View style={styles.menuList}>
 						<MenuItem icon="person-outline" label="Profile" onPress={() => { closeMenu(); router.push('/profile'); }} colors={colors} />
 						<MenuItem icon="settings-outline" label="Settings" onPress={() => { closeMenu(); router.push('/settings'); }} colors={colors} />
-						<MenuItem icon="checkmark-done-outline" label="Resolved Reports" onPress={() => { closeMenu(); router.push('/resolved-reports'); }} colors={colors} />
 					</View>
 				</SafeAreaView>
 			</Animated.View>
