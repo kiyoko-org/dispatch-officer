@@ -152,6 +152,7 @@ export default function LoginScreen() {
                     placeholderTextColor={colors.textSecondary}
                     keyboardType="numeric"
                     autoCapitalize="none"
+                    maxLength={6}
                 />
 
                 {/* Password Input with Eye Icon */}
@@ -173,6 +174,7 @@ export default function LoginScreen() {
                         onChangeText={setPassword}
                         secureTextEntry={!showPassword}
                         placeholderTextColor={colors.textSecondary}
+                        maxLength={64}
                     />
                     <TouchableOpacity
                         style={{ 
